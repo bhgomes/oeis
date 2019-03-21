@@ -1,0 +1,31 @@
+{
+    "name": "oeis",
+    "version_file": "oeis/_version.py",
+    "description": "interface to the OEIS",
+    "long_description_file": "README.md",
+    "long_description_content_type": "text/markdown",
+    "author": "Brandon Gomes",
+    "author_email": "bhgomes.github@gmail.com",
+    "url": "https://github.com/bhgomes/oeis",
+    "packages": {
+        "exclude": ["tests"]
+    },
+    "python_requires": ">=3.6.0",
+    "install_requires": [
+        "numpy",
+        "sympy",
+        "requests"
+    ],
+    "include_package_data": true,
+    "license": "MIT",
+    "classifiers": [
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Development Status :: 1 - Planning"
+    ]
+}
