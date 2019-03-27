@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*- #
 #
-# tests/__init__.py
+# oeis/generators/__init__.py
 #
 #
 # MIT License
@@ -27,8 +27,40 @@
 #
 
 """
-OEIS Interface Testing Suite.
+Interface to the OEIS.
 
 """
 
+# -------------- Standard Library -------------- #
+
+import itertools
+
 # ---------------- oeis Library ---------------- #
+
+
+__all__ = (
+    'g27',
+    'i27',
+    'g40',
+    'i40',
+)
+
+
+def g27():
+    """A000027: The Natural Numbers."""
+    yield from itertools.count(1)
+
+
+def i27(index):
+    """A000027: The Natural Numbers."""
+    return index
+
+
+def g40():
+    """A000040: The Prime Numbers."""
+    yield 0
+
+
+def i40(index):
+    """A000040: The Prime Numbers."""
+    return 0

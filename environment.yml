@@ -1,0 +1,12 @@
+name: oeis
+channels:
+  - conda-forge
+dependencies:
+  - ipython
+  - pytest
+  - numpy
+  - sympy
+  - wrapt
+  - requests
+  - aiohttp
+  - python-box
