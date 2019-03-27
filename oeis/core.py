@@ -34,7 +34,6 @@ Interface to the OEIS.
 # -------------- Standard Library -------------- #
 
 import re
-import typing
 from collections import namedtuple
 from collections.abc import Generator, MutableMapping, Iterable
 from datetime import datetime
@@ -70,6 +69,7 @@ __all__ = (
 
 
 def _convert_string(key):
+    """"""
     if isinstance(key, str):
         key = int(key.upper().strip('A'))
     return key
@@ -162,6 +162,20 @@ class Sequence(ObjectProxy):
     def from_json(cls, json_object):
         """"""
         return cls.from_dict(json_object)
+
+    @classmethod
+    def from_sequence(cls, sequence, new_generator=None, *, new_index_function=None, new_meta=None):
+        """"""
+        if not any((new_generator, new_index_function, new_meta)):
+            return sequence
+        index_function = value_or(new_index_function,
+                                  sequence.index_function if sequence._self_has_index_function else None)
+        generator = value_or(new_generator, sequence.__wrapped__)
+        meta = value_or(new_meta, sequence.meta)
+        return cls(sequence.number,
+                   generator,
+                   index_function=index_function,
+                   meta=meta)
 
     @property
     def index_function(self):
@@ -384,12 +398,23 @@ class Registry(MutableMapping):
 
     __slots__ = ('_factory', )
 
-    def __init__(self, *, sequence_factory=None):
+    @classmethod
+    def from_factory(cls, factory):
         """"""
-        self._factory = sequence_factory
+        obj = object.__new__(cls)
+        obj._factory = factory
+        return obj
+
+    def __new__(cls, *, cache_factory=dict, loader=requests):
+        """"""
+        return cls.from_factory(SequenceFactory(factory=cache_factory, loader=loader))
+
+    def __repr__(self):
+        """"""
+        return '{cls}{cache}'.format(cls=type(self).__name__, cache=tuple(self.internal_cache))
 
     @property
-    def cache(self):
+    def internal_cache(self):
         """"""
         return self._factory.cache
 
@@ -397,41 +422,49 @@ class Registry(MutableMapping):
         """"""
         key = oeis_name(name)
         if key in self.keys():
-            return self[key]
-        raise AttributeError('Missing Key.')
+            return self.internal_cache[key]
+        raise AttributeError('Missing Key: {}.'.format(name))
 
     def __getitem__(self, key):
         """"""
-        return self.cache[oeis_name(key)]
+        return self.internal_cache[oeis_name(key)]
 
     def __setitem__(self, key, value):
         """"""
-        self.cache[key] = value
+        self.internal_cache[key] = value
 
     def __delitem__(self, key):
         """"""
-        del self.cache[oeis_name(key)]
+        del self.internal_cache[oeis_name(key)]
 
     def __iter__(self):
         """"""
-        return iter(self.cache)
+        return iter(self.internal_cache)
 
     def __len__(self):
         """"""
-        return len(self.cache)
+        return len(self.internal_cache)
+
+    def clear(self):
+        """"""
+        return self._factory.clear()
 
     def register(self, key, generator=None, *, meta=None):
         """"""
-        key = oeis_name(key)
         try:
-            old_value = self.cache[key]
-        except Exception:
+            cached_value = self[key]
+            if meta and cached_value.meta == meta:
+                return Sequence.from_sequence(cached_value, generator)
+            else:
+                generator = value_or(generator, cached_value.__wrapped__)
+        except KeyError:
             pass
+        key = oeis_name(key)
         if meta is True:
             meta = self._factory.load_meta(key, check_name=False)
         number = oeis_number(key)
         if meta and number != meta.number:
             raise ValueError("OEIS numbers don't match: "
                              "{number} should be {meta_number}".format(number=number, meta_number=meta.number))
-        self.cache[key] = Sequence(number, generator=generator, meta=meta)
-        return self.cache[key]
+        self[key] = Sequence(number, generator=generator, meta=meta)
+        return self.internal_cache[key]

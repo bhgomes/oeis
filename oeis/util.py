@@ -27,7 +27,7 @@
 #
 
 """
-OEIS Utilities.
+OEIS Interface Utilities.
 
 """
 
@@ -44,34 +44,34 @@ import box
 
 
 def identity(x):
-    """"""
+    """The Identity function."""
     return x
 
 
 def value_or(value, default):
-    """"""
+    """Returns default if value is exactly None."""
     return value if value is not None else default
 
 
 def value_or_raise(value, exception):
-    """"""
+    """Raise exception if value is exactly None."""
     if value is not None:
         return value
     raise exception
 
 
 def empty_function():
-    """"""
+    """Function that does nothing."""
     return
 
 
 def empty_generator():
-    """"""
+    """Generator that yields nothing."""
     yield
 
 
 def multi_delimeter(*delimiters, flags=0):
-    """"""
+    """Constructs a multi-delimiter for splitting with Regex."""
     return re.compile('|'.join(map(re.escape, delimiters)), flags=flags)
 
 
@@ -99,14 +99,14 @@ class Box(box.Box):
 
     @classproperty
     def defaults(cls):
-        """"""
+        """Default arguments to the Box."""
         return {'camel_killer_box': True,
                 'frozen_box': True,
                 'default_box': True,
                 'default_box_attr': None}
 
     def __init__(self, *args, **kwargs):
-        """Initialize Box with different Defaults."""
+        """Initialize Box with custom Defaults."""
         defaults = self.defaults
         for k, v in self.defaults.items():
             if k in kwargs:
@@ -123,15 +123,15 @@ class BoxList(box.BoxList):
     """
 
     def __init__(self, iterable=None, **kwargs):
-        """Initialize BoxList with internal Box."""
+        """Initialize BoxList with custom Box."""
         super().__init__(iterable=iterable, box_class=Box)
         self.__dict__.update(**kwargs)
 
 
-def subset_box(dictionary, key, *, original=None):
-    """"""
-    subset = dictionary[key]
-    original_kwargs = Box({original: dictionary}) if original else Box()
+def subset_box(total, key, *, original=None):
+    """Get subset of mapping type as a Box or BoxList."""
+    subset = total[key]
+    original_kwargs = Box({original: total}) if original else Box()
     if isinstance(subset, Iterable):
         return BoxList(subset, **original_kwargs)
     return Box(subset, **original_kwargs)

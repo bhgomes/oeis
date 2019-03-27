@@ -41,39 +41,45 @@ from ._version import __version_info__, __version__
 
 from . import generators
 from .core import *
-
-
-A = SequenceFactory()
-OEIS = Registry(sequence_factory=A)
+from .util import value_or
 
 
 PYTHON_37_GETATTR_IMPORT = sys.version_info.major == 3 and sys.version_info.minor == 7
 
 
-__all__ = core.__all__ + ('A', 'OEIS', 'PYTHON_37_GETATTR_IMPORT')
-
-
-def _module_getattr_wrapper(a, o):
-    """"""
+def _module_getattr_(a_, oeis_, file):
+    """Customize Module Import Mechanism."""
     def inner(name):
         if name == '__all__':
             return __all__
         try:
-            return a.__call__(name)
+            return a_.__call__(name)
         except Exception:  # TODO: except ?
             try:
-                return getattr(o, name)
+                return getattr(oeis_, name)
             except Exception:  # TODO: except ?
                 pass
-        raise ImportError("cannot import name '{name}' from 'oeis' ({path})".format(name=name, path=__file__))
+        raise ImportError("cannot import name '{name}' from 'oeis' ({path})".format(name=name, path=file))
     return inner
 
 
-if PYTHON_37_GETATTR_IMPORT:
-    __getattr__ = _module_getattr_wrapper(A, OEIS)
+def setup_module(generator_list, file, *, a_=None, oeis_=None):
+    """Register all Included Generators."""
+    a_ = value_or(a_, SequenceFactory())
+    oeis_ = value_or(oeis_, Registry.from_factory(a_))
+    getattr_ = _module_getattr_(a_, oeis_, file)
+
+    for generator in map(lambda g: getattr(generators, g), generator_list):
+        name = generator.__name__
+        if name.startswith('g'):
+            oeis_.register(name.strip('g'), generator, meta=True)
+
+    if PYTHON_37_GETATTR_IMPORT:
+        return a_, oeis_, getattr_
+    return a_, oeis_
 
 
-for g in map(lambda g: getattr(generators, g), generators.__all__):
-    name = g.__name__
-    if name.startswith('g'):
-        OEIS.register(name.strip('g'), g, meta=True)
+A, OEIS, *__getattr__ = setup_module(generators.__all__, __file__)
+
+
+__all__ = core.__all__ + ('A', 'OEIS', 'PYTHON_37_GETATTR_IMPORT')
