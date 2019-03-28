@@ -74,7 +74,7 @@ class InvalidID(KeyError):
 def _convert_string(key):
     """Convert OEIS String to Integer."""
     if isinstance(key, str):
-        key = int(key.upper().strip('A'))
+        key = int(key.strip().upper().strip('A'))
     return key
 
 
@@ -146,6 +146,6 @@ def get_entry(index, *, check_name=True, backend=requests):
 def get_b_file(number, *, check_name=False, backend=requests):
     """Get B-File from OEIS Entry."""
     if check_name:
-        number = oeis_name(number)[1:]
-    pairs = backend.get(B_LIST_FORMAT.format(number=number)).text.strip().split()
+        number = oeis_name(number)
+    pairs = backend.get(B_LIST_FORMAT.format(number=number[1:])).text.strip().split()
     return BoxObject(tuple(map(int, pairs[1::2])), offset=int(pairs[0]))
