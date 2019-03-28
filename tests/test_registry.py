@@ -30,3 +30,11 @@
 Test OEIS Registry.
 
 """
+
+# -------------- External Library -------------- #
+
+import pytest
+
+# ---------------- oeis Library ---------------- #
+
+from oeis.sequence import *

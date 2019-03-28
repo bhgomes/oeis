@@ -30,3 +30,11 @@
 Test OEIS Utilities.
 
 """
+
+# -------------- External Library -------------- #
+
+import pytest
+
+# ---------------- oeis Library ---------------- #
+
+from oeis.util import *

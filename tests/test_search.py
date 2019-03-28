@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*- #
 #
-# tests/test_magic_import.py
+# tests/test_search.py
 #
 #
 # MIT License
@@ -27,39 +27,14 @@
 #
 
 """
-Test Magic Import System.
+Test Naming Convention.
 
 """
-
-# -------------- Standard Library -------------- #
-
-import sys
 
 # -------------- External Library -------------- #
 
 import pytest
-from numpy.random import randint
 
 # ---------------- oeis Library ---------------- #
 
-import oeis
-
-
-HAS_MAGIC_IMPORT = oeis.GETATTR_IMPORT
-
-
-def test_version():
-    assert (sys.version_info >= (3, 7)) == HAS_MAGIC_IMPORT
-
-
-@pytest.mark.parametrize('number', tuple(map(int, randint(500000, size=100))))
-@pytest.mark.skipif(not HAS_MAGIC_IMPORT, reason="Magic import only supported in Python 3.7+")
-def test_magic_import(number):
-    try:
-        entry = getattr(oeis, 'A' + str(number))
-    except ImportError:
-        pytest.skip("OEIS Entry {number} does not exist.".format(number=number))
-    default_request = oeis.A(number)
-    assert entry in oeis.OEIS
-    assert default_request in oeis.OEIS
-    assert entry == default_request
+from oeis.core import *

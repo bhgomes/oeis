@@ -31,6 +31,14 @@ Test OEIS Sequences.
 
 """
 
+# -------------- External Library -------------- #
+
+import pytest
+
+# ---------------- oeis Library ---------------- #
+
+from oeis.sequence import *
+
 
 class TestSequence:
     """"""
