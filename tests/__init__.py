@@ -30,5 +30,3 @@
 OEIS Interface Testing Suite.
 
 """
-
-# ---------------- oeis Library ---------------- #

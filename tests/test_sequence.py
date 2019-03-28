@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*- #
 #
-# tests/test_util.py
+# tests/test_sequence.py
 #
 #
 # MIT License
@@ -27,6 +27,13 @@
 #
 
 """
-Test OEIS Utilities.
+Test OEIS Sequences.
 
 """
+
+
+class TestSequence:
+    """"""
+
+    def test_pickle(self):
+        assert True

@@ -41,10 +41,11 @@ from ._version import __version_info__, __version__
 
 from . import generators
 from .core import *
+from .sequence import *
 from .util import value_or
 
 
-PYTHON_37_GETATTR_IMPORT = sys.version_info.major == 3 and sys.version_info.minor == 7
+GETATTR_IMPORT = sys.version_info >= (3, 7)
 
 
 def _module_getattr_(a_, oeis_, file):
@@ -65,21 +66,20 @@ def _module_getattr_(a_, oeis_, file):
 
 def setup_module(generator_list, file, *, a_=None, oeis_=None):
     """Register all Included Generators."""
-    a_ = value_or(a_, SequenceFactory())
+    a_ = value_or(a_, SequenceFactory(always_cache=True))
     oeis_ = value_or(oeis_, Registry.from_factory(a_))
-    getattr_ = _module_getattr_(a_, oeis_, file)
 
     for generator in map(lambda g: getattr(generators, g), generator_list):
         name = generator.__name__
         if name.startswith('g'):
             oeis_.register(name.strip('g'), generator, meta=True)
 
-    if PYTHON_37_GETATTR_IMPORT:
-        return a_, oeis_, getattr_
-    return a_, oeis_
+    if GETATTR_IMPORT:
+        return a_, oeis_, _module_getattr_(a_, oeis_, file)
+    return a_, oeis_, lambda n: None
 
 
-A, OEIS, *__getattr__ = setup_module(generators.__all__, __file__)
+A, OEIS, __getattr__ = setup_module(generators.__all__, __file__)
 
 
-__all__ = core.__all__ + ('A', 'OEIS', 'PYTHON_37_GETATTR_IMPORT')
+__all__ = core.__all__ + ('A', 'OEIS', 'GETATTR_IMPORT')

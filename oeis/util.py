@@ -34,11 +34,14 @@ OEIS Interface Utilities.
 # -------------- Standard Library -------------- #
 
 import re
-from collections.abc import Iterable
+from collections.abc import Mapping, Iterable
 
 # -------------- External Library -------------- #
 
 import box
+import numpy
+import sympy
+import wrapt
 
 # ---------------- oeis Library ---------------- #
 
@@ -60,6 +63,22 @@ def value_or_raise(value, exception):
     raise exception
 
 
+def except_or(f, exception, *default):
+    """Catch Exception and Return Default."""
+    try:
+        return f()
+    except exception:
+        if default:
+            return default[0]
+        else:
+            return
+
+
+def is_int(n):
+    """Check if number is an integer."""
+    return isinstance(n, (int, numpy.integer, sympy.numbers.Integer))
+
+
 def empty_function():
     """Function that does nothing."""
     return
@@ -68,6 +87,11 @@ def empty_function():
 def empty_generator():
     """Generator that yields nothing."""
     yield
+
+
+def grouped(iterable, n):
+    """Group Iterable into parts."""
+    return zip(*[iter(iterable)] * n)
 
 
 def multi_delimeter(*delimiters, flags=0):
@@ -122,16 +146,55 @@ class BoxList(box.BoxList):
 
     """
 
-    def __init__(self, iterable=None, **kwargs):
+    def __init__(self, iterable=None, box_class=Box, **kwargs):
         """Initialize BoxList with custom Box."""
-        super().__init__(iterable=iterable, box_class=Box)
+        super().__init__(iterable=iterable, box_class=box_class)
         self.__dict__.update(**kwargs)
 
 
+class BoxObject(wrapt.ObjectProxy):
+    """
+    Box Object.
+
+    """
+
+    def __init__(self, wrapped, *args, box_class=Box, **kwargs):
+        """Initialize Box Object with __dict__ as a Box."""
+        super().__init__(wrapped)
+        try:
+            base_dict = super().__getattr__('__dict__')
+        except AttributeError:
+            base_dict = {}
+        super().__setattr__('__dict__', box_class(base_dict, *args, **kwargs))
+
+    def __call__(self, *args, **kwargs):
+        """Wrapper for Callable Objects."""
+        return self.__wrapped__(*args, **kwargs)
+
+    def __getattr__(self, name):
+        """Get Attribute from Wrapped Object or from Box."""
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return self.__dict__[name]
+
+    def __setattr__(self, name, value):
+        """Set Attribute in Wrapped Object or Box."""
+        if hasattr(self.__wrapped__, name):
+            setattr(self.__wrapped__, name, value)
+        elif name == '__dict__':
+            raise TypeError('cannot set __dict__')
+        else:
+            self.__dict__[name] = value
+
+
 def subset_box(total, key, *, original=None):
-    """Get subset of mapping type as a Box or BoxList."""
-    subset = total[key]
-    original_kwargs = Box({original: total}) if original else Box()
-    if isinstance(subset, Iterable):
-        return BoxList(subset, **original_kwargs)
-    return Box(subset, **original_kwargs)
+    """Get subset of mapping type as a Box or BoxObject."""
+    try:
+        subset = total[key]
+    except KeyError:
+        subset = key(total)
+    kwargs = Box({original: total}) if original else Box()
+    if isinstance(subset, Mapping):
+        return Box(subset, **kwargs)
+    return BoxObject(subset, **kwargs)

@@ -4,6 +4,7 @@ channels:
 dependencies:
   - ipython
   - pytest
+  - pylint
   - numpy
   - sympy
   - wrapt

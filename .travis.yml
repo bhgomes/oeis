@@ -23,7 +23,7 @@ install:
   - conda env update -n travis_environment -f environment.yml
 
 script:
-  - pytest tests -svx
+  - pytest tests -svx -ra
 
 # after_script:
 #  - codecov

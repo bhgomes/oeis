@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*- #
 #
-# tests/test_util.py
+# tests/test_registry.py
 #
 #
 # MIT License
@@ -27,6 +27,6 @@
 #
 
 """
-Test OEIS Utilities.
+Test OEIS Registry.
 
 """

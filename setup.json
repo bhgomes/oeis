@@ -15,7 +15,8 @@
         "numpy",
         "sympy",
         "requests",
-        "aiohttp"
+        "wrapt",
+        "python-box"
     ],
     "include_package_data": true,
     "license": "MIT",
