@@ -23,11 +23,8 @@ install:
   - source activate travis_environment
 
 script:
-  - pytest tests/ -svx -ra
-
-after_script:
-  - black . --check
-  - coverage run tests/
+  - pytest tests/ -svx -ra --cov=codecov
 
 after_success:
   - codecov
+  - black . --check

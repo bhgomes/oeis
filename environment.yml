@@ -4,8 +4,10 @@ channels:
 dependencies:
   - ipython
   - pytest
-  - pylint
+  - pytest-cov
   - codecov
+  - coverage
+  - pylint
   - black
   - numpy
   - sympy
