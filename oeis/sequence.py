@@ -431,9 +431,7 @@ class Registry(MutableMapping):
         if meta and number != meta.number:
             raise ValueError(
                 "OEIS numbers don't match: "
-                "{number} should be {meta_number}".format(
-                    number=number, meta_number=meta.number
-                )
+                "{} should be {}".format(number, meta.number)
             )
         self[key] = Sequence(number, generator=generator, meta=meta)
         return self.internal_cache[key]

@@ -19,8 +19,8 @@ before_install:
 
 install:
   - conda create -n travis_environment python=$TRAVIS_PYTHON_VERSION pip
-  - source activate travis_environment
   - conda env update -n travis_environment -f environment.yml
+  - source activate travis_environment
 
 script:
   - pytest tests/ -svx -ra

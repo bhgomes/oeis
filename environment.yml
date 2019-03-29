@@ -6,7 +6,6 @@ dependencies:
   - pytest
   - pylint
   - codecov
-  - bandit
   - black
   - numpy
   - sympy
