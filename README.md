@@ -13,3 +13,7 @@ _Interface to [OEIS](https://oeis.org)_
 conda env update -f environment.yml --prune
 conda activate oeis
 ```
+
+---
+
+_[Copyright (c) 2019 Brandon Gomes](LICENSE)_
