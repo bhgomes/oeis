@@ -37,4 +37,28 @@ import pytest
 
 # ---------------- oeis Library ---------------- #
 
-from oeis.core import *
+from oeis.base import *
+
+
+def test_invalid_id():
+    assert True
+
+
+def test_convert_string():
+    assert True
+
+
+def test_oeis_name():
+    assert True
+
+
+def test_oeis_number():
+    assert True
+
+
+def test_oeis_id_regex():
+    assert True
+
+
+def test_find_references():
+    assert True

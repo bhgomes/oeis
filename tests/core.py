@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*- #
 #
-# oeis/generators/__init__.py
+# tests/core.py
 #
 #
 # MIT License
@@ -27,35 +27,43 @@
 #
 
 """
-Interface to the OEIS.
+Test Sutie Core.
 
 """
 
 # -------------- Standard Library -------------- #
 
-import itertools
+from functools import partial
+
+# -------------- External Library -------------- #
+
+from numpy.random import randint
 
 # ---------------- oeis Library ---------------- #
 
-
-__all__ = ("g27", "i27", "g40", "i40")
-
-
-def g27():
-    """A000027: The Natural Numbers."""
-    yield from itertools.count(1)
+import oeis
+from oeis.util import except_or, is_int
 
 
-def i27(index):
-    """A000027: The Natural Numbers."""
-    return index
+def random_id_gen(n, *, max_id=999999):
+    """Get Generator to Random Potential OEIS Numbers."""
+
+    def gen():
+        return tuple(map(int, randint(max_id, size=n)))
+
+    return gen
 
 
-def g40():
-    """A000040: The Prime Numbers."""
-    yield 0
-
-
-def i40(index):
-    """A000040: The Prime Numbers."""
-    return 0
+def random_oeis_sequences(n, *, max_id=999999, retries=10):
+    """Download Random Sample Sequences from OEIS."""
+    total = attempts = 0
+    gen = random_id_gen(n, max_id=max_id)
+    while total < n or attempts >= retries:
+        for a in gen():
+            seq = except_or(partial(oeis.A.load, a), Exception, None)
+            if seq:
+                total += 1
+                yield seq
+            if total == n:
+                return
+        attempts += 1

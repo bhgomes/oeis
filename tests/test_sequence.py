@@ -37,11 +37,10 @@ import pytest
 
 # ---------------- oeis Library ---------------- #
 
+from .core import random_oeis_sequences
+
 from oeis.sequence import *
 
 
-class TestSequence:
-    """"""
-
-    def test_pickle(self):
-        assert True
+def test_initialization():
+    assert True

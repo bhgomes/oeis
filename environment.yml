@@ -5,9 +5,14 @@ dependencies:
   - ipython
   - pytest
   - pylint
+  - codecov
+  - bandit
+  - black
   - numpy
   - sympy
   - wrapt
   - requests
   - aiohttp
   - python-box
+  - pip:
+    - bandit

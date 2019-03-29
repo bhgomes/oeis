@@ -40,7 +40,8 @@ import sys
 from ._version import __version_info__, __version__
 
 from . import generators
-from .core import *
+from .base import *
+from .client import *
 from .sequence import *
 from .util import value_or
 
@@ -50,29 +51,38 @@ GETATTR_IMPORT = sys.version_info >= (3, 7)
 
 def _module_getattr_(a_, oeis_, file):
     """Customize Module Import Mechanism."""
-    def inner(name):
-        if name == '__all__':
+
+    def inner(attribute):
+        if attribute == "__all__":
             return __all__
         try:
-            return a_.__call__(name)
+            return a_.__call__(attribute)
         except Exception:  # TODO: except ?
             try:
-                return getattr(oeis_, name)
+                return getattr(oeis_, attribute)
             except Exception:  # TODO: except ?
                 pass
-        raise ImportError("cannot import name '{name}' from 'oeis' ({path})".format(name=name, path=file))
+        raise ImportError(
+            "cannot import name '{}' from 'oeis' ({})".format(attribute, file)
+        )
+
     return inner
 
 
 def setup_module(generator_list, file, *, a_=None, oeis_=None):
     """Register all Included Generators."""
-    a_ = value_or(a_, SequenceFactory(always_cache=True))
+    if REQUESTS_SUPPORT:
+        import requests
+
+        session = requests.Session()
+
+    a_ = value_or(a_, SequenceFactory(always_cache=True, session=session))
     oeis_ = value_or(oeis_, Registry.from_factory(a_))
 
     for generator in map(lambda g: getattr(generators, g), generator_list):
-        name = generator.__name__
-        if name.startswith('g'):
-            oeis_.register(name.strip('g'), generator, meta=True)
+        generator_name = generator.__name__
+        if generator_name.startswith("g"):
+            oeis_.register(generator_name.strip("g"), generator, meta=True)
 
     if GETATTR_IMPORT:
         return a_, oeis_, _module_getattr_(a_, oeis_, file)
@@ -82,4 +92,6 @@ def setup_module(generator_list, file, *, a_=None, oeis_=None):
 A, OEIS, __getattr__ = setup_module(generators.__all__, __file__)
 
 
-__all__ = core.__all__ + ('A', 'OEIS', 'GETATTR_IMPORT')
+__all__ = (
+    base.__all__ + client.__all__ + sequence.__all__ + ("A", "OEIS", "GETATTR_IMPORT")
+)

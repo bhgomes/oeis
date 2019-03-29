@@ -34,7 +34,8 @@ OEIS Interface Utilities.
 # -------------- Standard Library -------------- #
 
 import re
-from collections.abc import Mapping, Iterable
+import inspect
+from collections.abc import Mapping
 
 # -------------- External Library -------------- #
 
@@ -70,8 +71,22 @@ def except_or(f, exception, *default):
     except exception:
         if default:
             return default[0]
-        else:
-            return
+        return
+
+
+def getattrmethod(obj, attr, *default):
+    """Get Attribute or Method Value: whatever works."""
+    try:
+        value = getattr(obj, attr)
+        return value() if inspect.ismethod(value) else value
+    except (AttributeError, TypeError) as exception:
+        if default:
+            if len(default) != 1:
+                return TypeError(
+                    f"getattrmethod expected at most 3 arguuments, got {2 + len(default)}"
+                )
+            return default[0]
+        raise exception
 
 
 def is_int(n):
@@ -96,7 +111,7 @@ def grouped(iterable, n):
 
 def multi_delimeter(*delimiters, flags=0):
     """Constructs a multi-delimiter for splitting with Regex."""
-    return re.compile('|'.join(map(re.escape, delimiters)), flags=flags)
+    return re.compile("|".join(map(re.escape, delimiters)), flags=flags)
 
 
 class classproperty(property):
@@ -124,10 +139,12 @@ class Box(box.Box):
     @classproperty
     def defaults(cls):
         """Default arguments to the Box."""
-        return {'camel_killer_box': True,
-                'frozen_box': True,
-                'default_box': True,
-                'default_box_attr': None}
+        return {
+            "camel_killer_box": True,
+            "frozen_box": True,
+            "default_box": True,
+            "default_box_attr": None,
+        }
 
     def __init__(self, *args, **kwargs):
         """Initialize Box with custom Defaults."""
@@ -135,7 +152,9 @@ class Box(box.Box):
         for k, v in self.defaults.items():
             if k in kwargs:
                 if v != kwargs[k]:
-                    raise TypeError('Box default {key}={value} is permanent.'.format(key=k, value=v))
+                    raise TypeError(
+                        "Box default {key}={value} is permanent.".format(key=k, value=v)
+                    )
                 kwargs.pop(k)
         super().__init__(*args, **defaults, **kwargs)
 
@@ -162,10 +181,10 @@ class BoxObject(wrapt.ObjectProxy):
         """Initialize Box Object with __dict__ as a Box."""
         super().__init__(wrapped)
         try:
-            base_dict = super().__getattr__('__dict__')
+            base_dict = super().__getattr__("__dict__")
         except AttributeError:
             base_dict = {}
-        super().__setattr__('__dict__', box_class(base_dict, *args, **kwargs))
+        super().__setattr__("__dict__", box_class(base_dict, *args, **kwargs))
 
     def __call__(self, *args, **kwargs):
         """Wrapper for Callable Objects."""
@@ -182,8 +201,8 @@ class BoxObject(wrapt.ObjectProxy):
         """Set Attribute in Wrapped Object or Box."""
         if hasattr(self.__wrapped__, name):
             setattr(self.__wrapped__, name, value)
-        elif name == '__dict__':
-            raise TypeError('cannot set __dict__')
+        elif name == "__dict__":
+            raise TypeError("cannot set __dict__")
         else:
             self.__dict__[name] = value
 
@@ -198,3 +217,11 @@ def subset_box(total, key, *, original=None):
     if isinstance(subset, Mapping):
         return Box(subset, **kwargs)
     return BoxObject(subset, **kwargs)
+
+
+def import_package(name):
+    """Import Package."""
+    try:
+        return __import__(name), True
+    except ImportError:
+        return BoxObject(name), False

@@ -38,3 +38,7 @@ import pytest
 # ---------------- oeis Library ---------------- #
 
 from oeis.sequence import *
+
+
+class TestRegistry:
+    """"""

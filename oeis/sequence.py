@@ -35,25 +35,24 @@ OEIS Sequences.
 
 import re
 from collections.abc import MutableMapping
+from copy import deepcopy
 from datetime import datetime
 from itertools import chain, groupby
 
 # -------------- External Library -------------- #
 
-import requests
 from wrapt import ObjectProxy
 
 # ---------------- oeis Library ---------------- #
 
-from .core import find_references, get_entry, oeis_name, oeis_number
-from .util import value_or, empty_generator, Box, BoxList
+from .base import find_references
+from .base import name as oeis_name
+from .base import number as oeis_number
+from .client import entry as oeis_entry
+from .util import value_or, empty_generator, Box, BoxList, BoxObject
 
 
-__all__ = (
-    'Sequence',
-    'SequenceFactory',
-    'Registry'
-)
+__all__ = ("Sequence", "SequenceFactory", "Registry")
 
 
 class Sequence(ObjectProxy):
@@ -79,21 +78,28 @@ class Sequence(ObjectProxy):
     @classmethod
     def from_dict(cls, meta):
         """Create Sequence from Metadata Dictionary."""
-        return cls(oeis_number(meta['number']), meta=meta)
+        return cls(oeis_number(meta["number"]), meta=meta)
 
     @classmethod
-    def from_sequence(cls, sequence, new_generator=None, *, new_index_function=None, new_meta=None, copy=False):
+    def from_sequence(
+        cls,
+        sequence,
+        new_generator=None,
+        *,
+        new_index_function=None,
+        new_meta=None,
+        copy=False
+    ):
         """Generate Sequence from Existing Sequence."""
         if not any((new_generator, new_index_function, new_meta)):
             return deepcopy(sequence) if copy else sequence
-        index_function = value_or(new_index_function,
-                                  sequence.index_function if sequence._self_has_index_function else None)
+        index_function = value_or(
+            new_index_function,
+            sequence.index_function if sequence._self_has_index_function else None,
+        )
         generator = value_or(new_generator, sequence.__wrapped__)
         meta = value_or(new_meta, sequence.meta)
-        return cls(sequence.number,
-                   generator,
-                   index_function=index_function,
-                   meta=meta)
+        return cls(sequence.number, generator, index_function=index_function, meta=meta)
 
     @property
     def index_function(self):
@@ -119,11 +125,10 @@ class Sequence(ObjectProxy):
             return self.sample[new_index]
         if self._self_has_index_function:
             return self.index_function(new_index - offset, *args, **kwargs)
-        else:
-            generator = self(*args, **kwargs)
-            for i in range(offset, index):
-                next(generator)
-            return next(generator)
+        generator = self(*args, **kwargs)
+        for _ in range(offset, index):
+            next(generator)
+        return next(generator)
 
     def __getitem__(self, index):
         """Get Index into Sequence."""
@@ -137,12 +142,12 @@ class Sequence(ObjectProxy):
     @property
     def short_name(self):
         """Get Sequence Short Name."""
-        return 'A{number}'.format(number=self.number)
+        return "A{number}".format(number=self.number)
 
     @property
     def name(self):
         """Get Sequence Full Name."""
-        return 'A{number:06d}'.format(number=self.number)
+        return "A{number:06d}".format(number=self.number)
 
     @property
     def __oeis_name__(self):
@@ -162,7 +167,7 @@ class Sequence(ObjectProxy):
     @property
     def offset(self):
         """Get Sequence Offset."""
-        return tuple(map(int, self.meta.offset.split(',')))
+        return tuple(map(int, self.meta.offset.split(",")))
 
     @property
     def description(self):
@@ -172,8 +177,8 @@ class Sequence(ObjectProxy):
     @property
     def sample(self):
         """Get Cached Sample of the Sequence."""
-        if not hasattr(self, '_self_sample'):
-            self._self_sample = tuple(map(int, self.meta.data.split(',')))
+        if not hasattr(self, "_self_sample"):
+            self._self_sample = list(map(int, self.meta.data.split(",")))
         return self._self_sample
 
     def sample_append(self, value):
@@ -196,17 +201,21 @@ class Sequence(ObjectProxy):
     @classmethod
     def _parse_programs(cls, others):
         """Parse Sample Program List."""
-        if not hasattr(cls, '_program_regex'):
-            cls._program_regex = re.compile(r"^\(([^\(\)]*)+?\).*$", re.MULTILINE | re.UNICODE)
+        if not hasattr(cls, "_program_regex"):
+            cls._program_regex = re.compile(
+                r"^\(([^\(\)]*)+?\).*$", re.MULTILINE | re.UNICODE
+            )
         last_key = None
-        def key(s):
-            global last_key
+
+        def key(line):
+            nonlocal last_key
             try:
-                last_key = cls._program_regex.match(s).groups()[0]
+                last_key = cls._program_regex.match(line).groups()[0]
             except AttributeError:
                 return last_key
             return last_key
-        clean = lambda k: lambda s: s.replace('({})'.format(k), '').strip()
+
+        clean = lambda k: lambda s: s.replace("({})".format(k), "").strip()
         return {k.lower(): tuple(map(clean(k), g)) for k, g in groupby(others, key=key)}
 
     @property
@@ -214,14 +223,16 @@ class Sequence(ObjectProxy):
         """Get OEIS Sample Programs."""
         maple = self.meta.maple
         mathematica = self.meta.mathematica
-        return Box(maple=maple,
-                   mathematica=mathematica,
-                   **self._parse_programs(self.meta.program))
+        return Box(
+            maple=maple,
+            mathematica=mathematica,
+            **self._parse_programs(self.meta.program)
+        )
 
     @property
     def keywords(self):
         """Get OEIS Keywords."""
-        return self.meta.keyword.split(',')
+        return self.meta.keyword.split(",")
 
     @property
     def modified(self):
@@ -246,7 +257,7 @@ class Sequence(ObjectProxy):
     @property
     def cross_references(self):
         """Get Cross References for Sequence."""
-        if not hasattr(self, '_self_xref'):
+        if not hasattr(self, "_self_xref"):
             xref = self.meta.xref
             if xref:
                 self._self_xref = self._find_xref_keys(xref)
@@ -264,7 +275,7 @@ class Sequence(ObjectProxy):
     @property
     def comments(self):
         """Get Comments for Sequence."""
-        if not hasattr(self, '_self_comments'):
+        if not hasattr(self, "_self_comments"):
             comments = self.meta.comment
             if comments:
                 self._self_comments = BoxList(tuple(self._parse_comments(comments)))
@@ -284,22 +295,22 @@ class SequenceFactory:
 
     """
 
-    __slots__ = ('_loader', '_cache', 'always_cache')
+    __slots__ = ("_session", "_cache", "always_cache")
 
-    def __init__(self, *, factory=dict, loader=requests, always_cache=False):
+    def __init__(self, *, factory=dict, session=None, always_cache=False):
         """Initialize Sequence Factory."""
-        self._loader = loader
+        self._session = session
         self._cache = factory()
         self.always_cache = always_cache
 
     @classmethod
-    def from_cache(cls, cache, *, loader=requests, always_cache=False):
+    def from_cache(cls, cache, *, session=None, always_cache=False):
         """Make Sequence Factory from Pre-loaded Cache."""
-        return cls(factory=lambda: cache, loader=loader, always_cache=always_cache)
+        return cls(factory=lambda: cache, session=session, always_cache=always_cache)
 
     def __reduce__(self):
         """Reduce Sequence Factory for Pickleing."""
-        return (self.__class__, (self._loader, self._cache, self.always_cache))
+        return (self.__class__, (self._session, self._cache, self.always_cache))
 
     def clear(self):
         """Clear Cache."""
@@ -312,7 +323,7 @@ class SequenceFactory:
 
     def load_meta(self, key, *, check_name=False):
         """Load Metadata Dictionary from Loader."""
-        return get_entry(key, check_name=check_name, backend=self._loader)
+        return oeis_entry(key, self._session, check_name=check_name)
 
     def load(self, key, *, cache_result=True, preload_sample=None):
         """Load Sequence with Default Caching."""
@@ -322,20 +333,21 @@ class SequenceFactory:
         except KeyError:
             pass
         try:
-            entry = Sequence.from_dict(self.load_meta(key, check_name=False))
-        except Exception:  # TODO: Figure this out
-            raise
+            meta = self.load_meta(key, check_name=False)
+            if not meta:
+                raise Exception
+            entry = Sequence.from_dict(meta)
+        except Exception as e:  # TODO: Figure this out
+            raise e
         if cache_result or self.always_cache:
             self._cache[key] = entry
         return entry
 
     def __call__(self, key, *args, cache_result=False, **kwargs):
         """Load Sequence without Caching by Default."""
-        return self.load(key, *args, cache_result=cache_result or self.always_cache, **kwargs)
-
-    def query(self, search_term):
-        """"""
-        return NotImplemented
+        return self.load(
+            key, *args, cache_result=cache_result or self.always_cache, **kwargs
+        )
 
 
 class Registry(MutableMapping):
@@ -344,7 +356,7 @@ class Registry(MutableMapping):
 
     """
 
-    __slots__ = ('_factory', )
+    __slots__ = ("_factory",)
 
     @classmethod
     def from_factory(cls, factory):
@@ -353,13 +365,15 @@ class Registry(MutableMapping):
         obj._factory = factory
         return obj
 
-    def __new__(cls, *, cache_factory=dict, loader=requests):
+    def __new__(cls, *, cache_factory=dict, session=None):
         """Make new Registry."""
-        return cls.from_factory(SequenceFactory(factory=cache_factory, loader=loader))
+        return cls.from_factory(SequenceFactory(factory=cache_factory, session=session))
 
     def __repr__(self):
         """Get Registry Representation."""
-        return '{cls}{cache}'.format(cls=type(self).__name__, cache=tuple(self.internal_cache))
+        return "{cls}{cache}".format(
+            cls=type(self).__name__, cache=tuple(self.internal_cache)
+        )
 
     @property
     def internal_cache(self):
@@ -371,7 +385,7 @@ class Registry(MutableMapping):
         try:
             return self[name]
         except KeyError:
-            raise AttributeError('Missing Key: {}.'.format(name))
+            raise AttributeError("Missing Key: {}.".format(name))
 
     def __contains__(self, key):
         """Check Containment of OEIS Key."""
@@ -407,8 +421,7 @@ class Registry(MutableMapping):
             cached_value = self[key]
             if meta and cached_value.meta == meta:
                 return Sequence.from_sequence(cached_value, generator)
-            else:
-                generator = value_or(generator, cached_value.__wrapped__)
+            generator = value_or(generator, cached_value.__wrapped__)
         except KeyError:
             pass
         key = oeis_name(key)
@@ -416,7 +429,11 @@ class Registry(MutableMapping):
             meta = self._factory.load_meta(key, check_name=False)
         number = oeis_number(key)
         if meta and number != meta.number:
-            raise ValueError("OEIS numbers don't match: "
-                             "{number} should be {meta_number}".format(number=number, meta_number=meta.number))
+            raise ValueError(
+                "OEIS numbers don't match: "
+                "{number} should be {meta_number}".format(
+                    number=number, meta_number=meta.number
+                )
+            )
         self[key] = Sequence(number, generator=generator, meta=meta)
         return self.internal_cache[key]

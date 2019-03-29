@@ -52,11 +52,13 @@ def test_version():
     assert (sys.version_info >= (3, 7)) == HAS_MAGIC_IMPORT
 
 
-@pytest.mark.parametrize('number', tuple(map(int, randint(500000, size=100))))
-@pytest.mark.skipif(not HAS_MAGIC_IMPORT, reason="Magic import only supported in Python 3.7+")
+@pytest.mark.parametrize("number", tuple(map(int, randint(500000, size=100))))
+@pytest.mark.skipif(
+    not HAS_MAGIC_IMPORT, reason="Magic import only supported in Python 3.7+"
+)
 def test_magic_import(number):
     try:
-        entry = getattr(oeis, 'A' + str(number))
+        entry = getattr(oeis, "A" + str(number))
     except ImportError:
         pytest.skip("OEIS Entry {number} does not exist.".format(number=number))
     default_request = oeis.A(number)

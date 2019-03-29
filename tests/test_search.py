@@ -27,7 +27,7 @@
 #
 
 """
-Test Naming Convention.
+Test Searching.
 
 """
 
@@ -37,4 +37,16 @@ import pytest
 
 # ---------------- oeis Library ---------------- #
 
-from oeis.core import *
+from oeis.client import *
+
+
+def test_oeis_query():
+    assert True
+
+
+def test_oeis_entry():
+    assert True
+
+
+def test_oeis_b_file():
+    assert True
