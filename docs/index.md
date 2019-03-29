@@ -1,6 +1,6 @@
 ## Pythonic Interface to the OEIS
 
-#### Docs: **[oeis.readthedocs.io]()**
+#### Docs Under Construction: [oeis.readthedocs.io](https://oeis.readthedocs.io)
 
 ---
 
