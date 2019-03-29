@@ -23,7 +23,7 @@ install:
   - source activate travis_environment
 
 script:
-  - pytest tests/ -svx -ra --cov=codecov
+  - pytest tests/ -svx -ra --cov=oeis
 
 after_success:
   - codecov
