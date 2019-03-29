@@ -76,6 +76,11 @@ def setup_module(generator_list, file, *, a_=None, oeis_=None):
 
         session = requests.Session()
 
+        if CACHE_CONTROL_SUPPORT:
+            from cachecontrol import CacheControl
+
+            session = CacheControl(session)
+
     a_ = value_or(a_, SequenceFactory(always_cache=True, session=session))
     oeis_ = value_or(oeis_, Registry.from_factory(a_))
 

@@ -39,6 +39,8 @@ from .util import import_package, getattrmethod, BoxObject, subset_box
 
 __all__ = (
     "REQUESTS_SUPPORT",
+    "REQUESTS_TOOLBELT_SUPPORT",
+    "CACHE_CONTROL_SUPPORT",
     "AIOHTTP_SUPPORT",
     "QUERY_FORMAT",
     "ENTRY_FORMAT",
@@ -57,10 +59,10 @@ requests, REQUESTS_SUPPORT = import_package("requests")
 _, REQUESTS_TOOLBELT_SUPPORT = import_package("requests_toolbelt")
 
 
-aiohttp, AIOHTTP_SUPPORT = import_package("aiohttp")
-
-
 cachecontrol, CACHE_CONTROL_SUPPORT = import_package("cachecontrol")
+
+
+aiohttp, AIOHTTP_SUPPORT = import_package("aiohttp")
 
 
 QUERY_FORMAT = "https://oeis.org/search?q={0}&fmt=json"
