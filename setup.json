@@ -1,5 +1,5 @@
 {
-    "name": "oeis",
+    "name": "oeis-api",
     "version_file": "oeis/_version.py",
     "description": "interface to the OEIS",
     "long_description_file": "README.md",
@@ -14,7 +14,6 @@
     "install_requires": [
         "numpy",
         "sympy",
-        "requests",
         "wrapt",
         "python-box"
     ],

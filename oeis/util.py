@@ -36,6 +36,7 @@ OEIS Interface Utilities.
 import re
 import inspect
 from collections.abc import Mapping
+from itertools import izip_longest
 
 # -------------- External Library -------------- #
 
@@ -104,9 +105,10 @@ def empty_generator():
     yield
 
 
-def grouped(iterable, n):
+def grouped(iterable, n, default=None):
     """Group Iterable into parts."""
-    return zip(*[iter(iterable)] * n)
+    args = [iter(iterable)] * n
+    return izip_longest(fillvalue=default, *args)
 
 
 def multi_delimeter(*delimiters, flags=0):
