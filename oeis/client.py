@@ -44,12 +44,12 @@ __all__ = (
     "AIOHTTP_SUPPORT",
     "QUERY_FORMAT",
     "ENTRY_FORMAT",
-    "B_FILE_FORMAT",
+    "BFILE_FORMAT",
     "fetch",
     "afetch",
     "query",
     "entry",
-    "b_file",
+    "bfile",
 )
 
 
@@ -71,7 +71,7 @@ QUERY_FORMAT = "https://oeis.org/search?q={0}&fmt=json"
 ENTRY_FORMAT = "https://oeis.org/search?q=id:{0}&fmt=json"
 
 
-B_FILE_FORMAT = "https://oeis.org/A{0}/b{0}.txt"
+BFILE_FORMAT = "https://oeis.org/A{0}/b{0}.txt"
 
 
 def get_text(response):
@@ -138,23 +138,50 @@ def query(term, *args, **kwargs):
     raise TypeError("Search Term must be non-empty.")
 
 
-def entry(index, *args, check_name=True, **kwargs):
+def entry(number, *args, check_name=True, **kwargs):
     """Get OEIS Entry Metadata."""
     if check_name:
-        index = oeis_name(index)
-    search_result = _fetch_formatted(ENTRY_FORMAT, index, *args, as_json=True, **kwargs)
+        number = oeis_name(number)
+    search_result = _fetch_formatted(
+        ENTRY_FORMAT, number, *args, as_json=True, **kwargs
+    )
     if not search_result["count"]:
         return BoxObject(None, raw=search_result)
-    return subset_box(search_result, lambda d: d["results"][0], original="raw")
+    return subset_box(
+        search_result, key=lambda d: d["results"][0], name_for_original="raw"
+    )
 
 
-def b_file(index, *args, check_name=False, **kwargs):
+def _get_bfile_line_content(line):
+    """Get B-File Content without Comments."""
+    return line.partition("#")[0]
+
+
+def _parsed_bfile_lines(lines):
+    """Parse B-File Lines for Sequence."""
+    lines = iter(lines)
+    for line in lines:
+        start = _get_bfile_line_content(line)
+        if start:
+            yield from map(int, start.split())
+            break
+    for line in lines:
+        start = _get_bfile_line_content(line)
+        if start:
+            yield int(start.split()[1])
+
+
+def bfile(number, *args, check_name=False, starting_index=0, **kwargs):
     """Get B-File associated to OEIS Entry."""
     if check_name:
-        index = oeis_name(index)
-    pairs = (
-        _fetch_formatted(B_FILE_FORMAT, index[1:], *args, as_json=False, **kwargs)
+        number = oeis_name(number)
+    lines = (
+        _fetch_formatted(BFILE_FORMAT, number[1:], *args, as_json=False, **kwargs)
         .strip()
-        .split()
+        .split("\n")
     )
-    return BoxObject(tuple(map(int, pairs[1::2])), offset=int(pairs[0]))
+    sequence = _parsed_bfile_lines(lines)
+    offset = next(sequence)
+    for _ in range(starting_index):
+        next(sequence)
+    return BoxObject(tuple(sequence), offset=offset)

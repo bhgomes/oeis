@@ -49,6 +49,7 @@ from .base import find_references
 from .base import name as oeis_name
 from .base import number as oeis_number
 from .client import entry as oeis_entry
+from .client import bfile as oeis_bfile
 from .util import value_or, empty_generator, Box, BoxList, BoxObject
 
 
@@ -179,19 +180,29 @@ class Sequence(ObjectProxy):
         """Get Cached Sample of the Sequence."""
         if not hasattr(self, "_self_sample"):
             self._self_sample = list(map(int, self.meta.data.split(",")))
+            self._self_with_bfile = False
         return self._self_sample
 
     def sample_append(self, value):
         """Append to Sequence Sample."""
-        self._self_sample.append(value)
+        self.sample.append(value)
 
     def sample_extend(self, values):
         """Extend Sample Sequence."""
-        self._self_sample.extend(values)
+        self.sample.extend(values)
 
     def sample_reset(self):
         """Reset Sequence Sample to Metadata Default."""
-        del self._self_sample
+        if hasattr(self, "_self_sample"):
+            del self._self_sample
+            self._self_with_bfile = False
+
+    @property
+    def with_bfile(self):
+        """"""
+        if not hasattr(self, "_self_with_bfile"):
+            self._self_with_bfile = False
+        return self._self_with_bfile
 
     @property
     def formulas(self):
@@ -325,22 +336,40 @@ class SequenceFactory:
         """Load Metadata Dictionary from Loader."""
         return oeis_entry(key, self._session, check_name=check_name)
 
-    def load(self, key, *, cache_result=True, preload_sample=None):
+    @classmethod
+    def _extend_from_bfile(cls, key, sequence, *, check_name=False):
+        """Extend Sample Data for Sequence from B-File if possible."""
+        data = oeis_bfile(key, check_name=check_name)
+        if data:
+            sequence.sample_extend(data[len(sequence.sample) :])
+            sequence._self_with_bfile = True
+        return sequence
+
+    def load(self, key, *, cache_result=True, preload_sample=None, with_bfile=False):
         """Load Sequence with Default Caching."""
         key = oeis_name(key)
         try:
-            return self._cache[key]
+            previous = self._cache[key]
+            if with_bfile and not previous.with_bfile:
+                return self._extend_from_bfile(key, previous, check_name=False)
+            return previous
         except KeyError:
             pass
         try:
             meta = self.load_meta(key, check_name=False)
             if not meta:
                 raise Exception
-            entry = Sequence.from_dict(meta)
+            if with_bfile:
+                entry = self._extend_from_bfile(
+                    key, Sequence.from_dict(meta), check_name=False
+                )
+            else:
+                entry = Sequence.from_dict(meta)
         except Exception as e:  # TODO: Figure this out
             raise e
         if cache_result or self.always_cache:
             self._cache[key] = entry
+            return self._cache[key]
         return entry
 
     def __call__(self, key, *args, cache_result=False, **kwargs):

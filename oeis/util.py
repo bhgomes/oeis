@@ -36,7 +36,7 @@ OEIS Interface Utilities.
 import re
 import inspect
 from collections.abc import Mapping
-from itertools import izip_longest
+from itertools import zip_longest
 
 # -------------- External Library -------------- #
 
@@ -108,7 +108,7 @@ def empty_generator():
 def grouped(iterable, n, default=None):
     """Group Iterable into parts."""
     args = [iter(iterable)] * n
-    return izip_longest(fillvalue=default, *args)
+    return zip_longest(fillvalue=default, *args)
 
 
 def multi_delimeter(*delimiters, flags=0):
@@ -209,13 +209,10 @@ class BoxObject(wrapt.ObjectProxy):
             self.__dict__[name] = value
 
 
-def subset_box(total, key, *, original=None):
+def subset_box(total, key=identity, *, name_for_original=None):
     """Get subset of mapping type as a Box or BoxObject."""
-    try:
-        subset = total[key]
-    except KeyError:
-        subset = key(total)
-    kwargs = Box({original: total}) if original else Box()
+    subset = key(total)
+    kwargs = Box({name_for_original: total}) if name_for_original else Box()
     if isinstance(subset, Mapping):
         return Box(subset, **kwargs)
     return BoxObject(subset, **kwargs)
