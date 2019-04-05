@@ -34,7 +34,6 @@ Test OEIS Utilities.
 # -------------- External Library -------------- #
 
 import pytest
-import numpy
 
 # ---------------- oeis Library ---------------- #
 

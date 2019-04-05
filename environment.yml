@@ -5,15 +5,16 @@ dependencies:
   - ipython
   - pytest
   - pytest-cov
-  - codecov
   - coverage
+  - coveralls
   - pylint
   - black
   - numpy
   - sympy
   - wrapt
+  - python-box
   - requests
   - aiohttp
-  - python-box
+  - pip
   - pip:
     - bandit

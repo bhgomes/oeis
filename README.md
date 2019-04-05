@@ -1,11 +1,18 @@
-# oeis
-[![Build Status](https://travis-ci.com/bhgomes/oeis.svg?token=yR6xpuQ1eE8snjeofqA8&branch=master)](https://travis-ci.com/bhgomes/oeis)
-[![Documentation Status](https://readthedocs.org/projects/oeis/badge/?version=latest)](https://oeis.readthedocs.io/en/latest/?badge=latest)
-[![codecov](https://codecov.io/gh/bhgomes/oeis/branch/master/graph/badge.svg?token=vTvXjfMJD9)](https://codecov.io/gh/bhgomes/oeis) 
-[![Maintainability](https://api.codeclimate.com/v1/badges/0e5458a2571e7b6c63f6/maintainability)](https://codeclimate.com/github/bhgomes/oeis/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/0e5458a2571e7b6c63f6/test_coverage)](https://codeclimate.com/github/bhgomes/oeis/test_coverage)
+<div align="center">
 
-_Interface to [OEIS](https://oeis.org)_
+# oeis
+
+_Interface to the [OEIS](https://oeis.org)_
+
+[![PyPI](https://img.shields.io/pypi/v/oeis-api.svg)](https://pypi.org/project/oeis-api)
+[![Documentation Status](https://readthedocs.org/projects/oeis/badge/?version=latest)](https://oeis.readthedocs.io/en/latest/?badge=latest)
+[![Build Status](https://travis-ci.com/bhgomes/oeis.svg?&branch=master)](https://travis-ci.com/bhgomes/oeis)
+[![Coverage Status](https://coveralls.io/repos/github/bhgomes/oeis/badge.svg?branch=master)](https://coveralls.io/github/bhgomes/oeis?branch=master)
+[![Maintainability](https://api.codeclimate.com/v1/badges/0e5458a2571e7b6c63f6/maintainability)](https://codeclimate.com/github/bhgomes/oeis/maintainability)
+[![License](https://img.shields.io/github/license/bhgomes/hexfarm.svg?color=blue)](https://github.com/bhgomes/hexfarm/blob/master/LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
+
+</div>
 
 ## Installation
 

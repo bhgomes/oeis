@@ -40,19 +40,45 @@ import re
 from .util import is_int
 
 
-__all__ = ("InvalidID", "name", "number", "OEIS_ID_REGEX", "find_references")
+__all__ = (
+    "InvalidID",
+    "MissingID",
+    "name",
+    "number",
+    "OEIS_ID_REGEX",
+    "find_references",
+)
 
 
-class InvalidID(KeyError):
+class FromKeyMixin:
+    """
+    FromKey Mixin Class.
+
+    """
+
+    def __init_subclass__(cls, key_text="{}", **kwargs):
+        """Initialize Subclasses."""
+        super().__init_subclass__(**kwargs)
+        cls.key_text = key_text
+
+    @classmethod
+    def from_key(cls, key):
+        """Build from Key"""
+        return cls(cls.key_text.format(key))
+
+
+class InvalidID(KeyError, FromKeyMixin, key_text="Key {} not a valid OEIS id."):
     """
     Invalid OEIS ID.
 
     """
 
-    @classmethod
-    def from_key(cls, key):
-        """Build Exception from Key."""
-        return cls("Key {} must be a valid OEIS id.".format(key))
+
+class MissingID(KeyError, FromKeyMixin, key_text="Key {} missing from OEIS."):
+    """
+    Missing OEIS ID.
+
+    """
 
 
 def _convert_string(key):
@@ -64,25 +90,27 @@ def _convert_string(key):
 
 def name(key):
     """Get Full Name for OEIS Sequence."""
-    try:
+    if hasattr(key, "__oeis_name__"):
         return key.__oeis_name__
-    except AttributeError:
+    try:
+        key = _convert_string(key)
+        if is_int(key):
+            return "A{key:06d}".format(key=key)
+    except ValueError:
         pass
-    key = _convert_string(key)
-    if is_int(key):
-        return "A{key:06d}".format(key=key)
     raise InvalidID.from_key(key)
 
 
 def number(key):
     """Get Index of OEIS Sequence."""
+    if hasattr(key, "__oeis_name__"):
+        return key.__oeis_name__
     try:
-        return key.__oeis_number__
-    except AttributeError:
+        key = _convert_string(key)
+        if is_int(key):
+            return key
+    except ValueError:
         pass
-    key = _convert_string(key)
-    if is_int(key):
-        return key
     raise InvalidID.from_key(key)
 
 

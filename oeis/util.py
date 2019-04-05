@@ -84,7 +84,7 @@ def getattrmethod(obj, attr, *default):
         if default:
             if len(default) != 1:
                 return TypeError(
-                    f"getattrmethod expected at most 3 arguuments, got {2 + len(default)}"
+                    f"getattrmethod expected at most 3 arguments, got {2 + len(default)}"
                 )
             return default[0]
         raise exception
@@ -111,7 +111,7 @@ def grouped(iterable, n, default=None):
     return zip_longest(fillvalue=default, *args)
 
 
-def multi_delimeter(*delimiters, flags=0):
+def multi_delimiter(*delimiters, flags=0):
     """Constructs a multi-delimiter for splitting with Regex."""
     return re.compile("|".join(map(re.escape, delimiters)), flags=flags)
 
@@ -168,51 +168,110 @@ class BoxList(box.BoxList):
     """
 
     def __init__(self, iterable=None, box_class=Box, **kwargs):
-        """Initialize BoxList with custom Box."""
+        """
+        Initialize BoxList with custom Box.
+
+        :param iterable:
+        :param box_class:
+        :param kwargs:
+        """
         super().__init__(iterable=iterable, box_class=box_class)
         self.__dict__.update(**kwargs)
 
 
 class BoxObject(wrapt.ObjectProxy):
     """
-    Box Object.
-
+    Wrapper for any Python object with a Box as __dict__.
     """
 
-    def __init__(self, wrapped, *args, box_class=Box, **kwargs):
-        """Initialize Box Object with __dict__ as a Box."""
-        super().__init__(wrapped)
+    def __init__(self, wrapped=None, *args, **kwargs):
+        """
+        Initialize Box Object with __dict__ as a Box.
+
+        :param wrapped:
+        :param args:
+        :param kwargs:
+        """
+        super(BoxObject, self).__init__(wrapped)
+        box_class = kwargs.pop("box_class", Box)
         try:
-            base_dict = super().__getattr__("__dict__")
+            base_dict = super(BoxObject, self).__getattr__("__dict__")
+            if args:
+                raise TypeError(
+                    "Cannot pass dictionary arguments when "
+                    "internal object has __dict__ attributes. "
+                    "Pass arguments by keyword instead."
+                )
+            box_dict = box_class(base_dict, **kwargs)
         except AttributeError:
-            base_dict = {}
-        super().__setattr__("__dict__", box_class(base_dict, *args, **kwargs))
+            box_dict = box_class(*args, **kwargs)
+        super(BoxObject, self).__setattr__("__dict__", box_dict)
 
     def __call__(self, *args, **kwargs):
-        """Wrapper for Callable Objects."""
+        """
+        Call Method for Callable Objects.
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
         return self.__wrapped__(*args, **kwargs)
 
     def __getattr__(self, name):
-        """Get Attribute from Wrapped Object or from Box."""
+        """
+        Get Attribute from Wrapped Object or from Box.
+
+        :param name:
+        :return:
+        """
         try:
-            return super().__getattr__(name)
-        except AttributeError:
-            return self.__dict__[name]
+            return super(BoxObject, self).__getattr__(name)
+        except AttributeError as error:
+            try:
+                return self.__dict__[name]
+            except KeyError:
+                raise error
 
     def __setattr__(self, name, value):
-        """Set Attribute in Wrapped Object or Box."""
-        if hasattr(self.__wrapped__, name):
-            setattr(self.__wrapped__, name, value)
-        elif name == "__dict__":
+        """
+        Set Attribute in Wrapped Object or Box.
+
+        :param name:
+        :param value:
+        :return:
+        """
+        if name == "__dict__":
             raise TypeError("cannot set __dict__")
+        elif hasattr(self.__wrapped__, name):
+            setattr(self.__wrapped__, name, value)
         else:
             self.__dict__[name] = value
 
+    def __delattr__(self, name):
+        """
+        Delete Attribute in Wrapped Object or Box.
 
-def subset_box(total, key=identity, *, name_for_original=None):
+        :param name:
+        :return:
+        """
+        if name == "__dict__":
+            super(BoxObject, self).__setattr__(
+                "__dict__", getattr(self.__wrapped__, "__dict__", {})
+            )
+        else:
+            try:
+                delattr(self.__wrapped__, name)
+            except AttributeError as error:
+                try:
+                    del self.__dict__[name]
+                except KeyError:
+                    raise error
+
+
+def subset_box(total, key=identity, *, origin_name=None):
     """Get subset of mapping type as a Box or BoxObject."""
     subset = key(total)
-    kwargs = Box({name_for_original: total}) if name_for_original else Box()
+    kwargs = Box({origin_name: total}) if origin_name else Box()
     if isinstance(subset, Mapping):
         return Box(subset, **kwargs)
     return BoxObject(subset, **kwargs)

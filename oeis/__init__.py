@@ -57,7 +57,7 @@ def _module_getattr_(a_, oeis_, file):
             return __all__
         try:
             return a_.__call__(attribute)
-        except Exception:  # TODO: except ?
+        except MissingID:
             try:
                 return getattr(oeis_, attribute)
             except Exception:  # TODO: except ?

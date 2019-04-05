@@ -18,13 +18,13 @@ before_install:
   - conda info -a
 
 install:
-  - conda create -n travis_environment python=$TRAVIS_PYTHON_VERSION pip
+  - conda create -n travis_environment python=$TRAVIS_PYTHON_VERSION
   - conda env update -n travis_environment -f environment.yml
   - source activate travis_environment
 
 script:
-  - pytest tests/ -svx -ra --cov=oeis
+  - pytest tests/ -sv -ra --cov=oeis
 
 after_success:
-  - codecov
+  - coveralls
   - black . --check

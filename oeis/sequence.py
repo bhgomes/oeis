@@ -37,7 +37,9 @@ import re
 from collections.abc import MutableMapping
 from copy import deepcopy
 from datetime import datetime
-from itertools import chain, groupby
+from itertools import chain, groupby, islice
+from functools import partial
+import inspect
 
 # -------------- External Library -------------- #
 
@@ -45,15 +47,40 @@ from wrapt import ObjectProxy
 
 # ---------------- oeis Library ---------------- #
 
-from .base import find_references
 from .base import name as oeis_name
 from .base import number as oeis_number
+from .base import find_references, MissingID
 from .client import entry as oeis_entry
 from .client import bfile as oeis_bfile
-from .util import value_or, empty_generator, Box, BoxList, BoxObject
+from .util import is_int, value_or, empty_generator, Box, BoxList
 
 
 __all__ = ("Sequence", "SequenceFactory", "Registry")
+
+
+def _slice_details(f, *args, **kwargs):
+    """
+    Get Slice Details of a Function.
+
+    :param f:
+    :param args:
+    :param kwargs:
+    :return:
+    """
+    if inspect.isgeneratorfunction(f):
+        gen = f(*args, **kwargs)
+        return type(gen), 3, partial(islice, gen)
+    if inspect.isgenerator(f):
+        return type(f), 3, partial(islice, f)
+    if inspect.ismethod(f) or inspect.isfunction(f):
+        signature = inspect.signature(f)
+        argument_count = len(signature.parameters)
+        if argument_count in (1, 3):
+            for parameter in signature.parameters.values():
+                if parameter.kind != inspect.Parameter.POSITIONAL_OR_KEYWORD:
+                    return type(f), 0, None
+            return type(f), argument_count, f
+    return type(f), 0, None
 
 
 class Sequence(ObjectProxy):
@@ -62,78 +89,119 @@ class Sequence(ObjectProxy):
 
     """
 
-    def __init__(self, number, generator=None, *, index_function=None, meta=None):
-        """Initialize Proxy."""
-        # TODO: check that the generator is callable
-        # TODO: make the generation function optional between index and gen or both?
+    def __init__(self, number, generator=None, *, meta=None):
+        """
+        Initialize Proxy.
+
+        :param number:
+        :param generator:
+        :param meta:
+        """
         super().__init__(value_or(generator, empty_generator))
         self._self_number = number
         self._self_meta = value_or(meta, Box())
-        if index_function:
-            self._self_has_index_function = True
-            self._self_index_function = index_function
-        else:
-            self._self_has_index_function = False
-            self._self_index_function = self.__getitem__
 
     @classmethod
     def from_dict(cls, meta):
-        """Create Sequence from Metadata Dictionary."""
+        """
+        Create Sequence from Metadata Dictionary.
+
+        :param meta:
+        :return:
+        """
         return cls(oeis_number(meta["number"]), meta=meta)
 
     @classmethod
-    def from_sequence(
-        cls,
-        sequence,
-        new_generator=None,
-        *,
-        new_index_function=None,
-        new_meta=None,
-        copy=False
-    ):
-        """Generate Sequence from Existing Sequence."""
-        if not any((new_generator, new_index_function, new_meta)):
+    def from_sequence(cls, sequence, new_generator=None, *, new_meta=None, copy=False):
+        """
+        Generate Sequence from Existing Sequence.
+
+        :param sequence:
+        :param new_generator:
+        :param new_meta:
+        :param copy:
+        :return:
+        """
+        if not (new_generator or new_meta):
             return deepcopy(sequence) if copy else sequence
-        index_function = value_or(
-            new_index_function,
-            sequence.index_function if sequence._self_has_index_function else None,
-        )
         generator = value_or(new_generator, sequence.__wrapped__)
         meta = value_or(new_meta, sequence.meta)
-        return cls(sequence.number, generator, index_function=index_function, meta=meta)
-
-    @property
-    def index_function(self):
-        """Get Index Function Instead of Generator."""
-        return self._self_index_function
+        return cls(sequence.number, generator, meta=meta)
 
     def __call__(self, *args, **kwargs):
-        """"""
+        """
+        Call Internal Generator.
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
         return self.__wrapped__(*args, **kwargs)
 
-    def get(self, index, *args, cache_result=False, **kwargs):
-        """Get Index into Sequence."""
-        # TODO:
-        # if isinstance(index, int):
-        #     index = slice(index, index + 1, 1)
-        # start, stop, step = index
+    def get(
+        self,
+        index,
+        *args,
+        cache_result=False,
+        ignore_offset=False,
+        ignore_sample=False,
+        **kwargs
+    ):
+        """
+        Get Index into Sequence.
 
-        # TODO: do index checking here not in the wrapped function
+        :param index:
+        :param args:
+        :param cache_result:
+        :param ignore_offset:
+        :param ignore_sample:
+        :param kwargs:
+        :return:
+        """
+        if cache_result:
+            return NotImplemented
 
-        offset = self.offset[0]
-        new_index = index - offset
-        if new_index < len(self.sample):
-            return self.sample[new_index]
-        if self._self_has_index_function:
-            return self.index_function(new_index - offset, *args, **kwargs)
-        generator = self(*args, **kwargs)
-        for _ in range(offset, index):
-            next(generator)
-        return next(generator)
+        if is_int(index):
+            index = slice(index)
+        if isinstance(index, slice):
+            start, stop, step = index.start, index.stop, index.step
+            if not ignore_offset:
+                start = start - self.offset
+                if stop:
+                    stop = stop - self.offset
+        else:
+            raise TypeError("expected integer or slice")
 
-    def __getitem__(self, index):
-        """Get Index into Sequence."""
-        return self.get(index)
+        gen_type, argument_count, gen = _slice_details(self.generator, *args, **kwargs)
+
+        if not ignore_sample:
+            sample_length = len(self.sample)
+            after_sample = stop - sample_length
+            if start < sample_length:
+                yield from self.sample[start : min(stop, sample_length) : step]
+            if after_sample < 0:
+                return
+            start = sample_length
+            stop = stop
+
+        if argument_count == 3:
+            yield from gen(start, stop, step)
+        if argument_count == 1:
+            if stop is None and step is None:
+                yield gen(start)
+            yield from map(gen, range(start, stop, step))
+
+        raise TypeError("invalid generator")
+
+    def __getitem__(self, index, *args):
+        """
+        Get Index into Sequence.
+
+        :param index:
+        :param args:
+        :return:
+        """
+        return self.get(index, *args)
 
     @property
     def number(self):
@@ -149,6 +217,11 @@ class Sequence(ObjectProxy):
     def name(self):
         """Get Sequence Full Name."""
         return "A{number:06d}".format(number=self.number)
+
+    @property
+    def website(self):
+        """Get Website for Sequence."""
+        return "https://oeis.org/{}".format(self.name)
 
     @property
     def __oeis_name__(self):
@@ -168,7 +241,7 @@ class Sequence(ObjectProxy):
     @property
     def offset(self):
         """Get Sequence Offset."""
-        return tuple(map(int, self.meta.offset.split(",")))
+        return int(self.meta.offset.split(",")[0])
 
     @property
     def description(self):
@@ -199,7 +272,7 @@ class Sequence(ObjectProxy):
 
     @property
     def with_bfile(self):
-        """"""
+        """Check if B-File is Loaded into Sample."""
         if not hasattr(self, "_self_with_bfile"):
             self._self_with_bfile = False
         return self._self_with_bfile
@@ -232,11 +305,9 @@ class Sequence(ObjectProxy):
     @property
     def programs(self):
         """Get OEIS Sample Programs."""
-        maple = self.meta.maple
-        mathematica = self.meta.mathematica
         return Box(
-            maple=maple,
-            mathematica=mathematica,
+            maple=self.meta.maple,
+            mathematica=self.meta.mathematica,
             **self._parse_programs(self.meta.program)
         )
 
@@ -244,6 +315,11 @@ class Sequence(ObjectProxy):
     def keywords(self):
         """Get OEIS Keywords."""
         return self.meta.keyword.split(",")
+
+    @property
+    def recycled(self):
+        """Check if Sequence is Recycled."""
+        return "recycled" in self.keywords
 
     @property
     def modified(self):
@@ -306,74 +382,144 @@ class SequenceFactory:
 
     """
 
-    __slots__ = ("_session", "_cache", "always_cache")
+    __slots__ = ("session", "cache", "always_cache")
 
     def __init__(self, *, factory=dict, session=None, always_cache=False):
-        """Initialize Sequence Factory."""
-        self._session = session
-        self._cache = factory()
+        """
+        Initialize Sequence Factory.
+
+        :param factory:
+        :param session:
+        :param always_cache:
+        """
+        self.cache = factory()
+        self.session = session
         self.always_cache = always_cache
 
     @classmethod
     def from_cache(cls, cache, *, session=None, always_cache=False):
-        """Make Sequence Factory from Pre-loaded Cache."""
+        """
+        Make Sequence Factory from Pre-loaded Cache.
+
+        :param cache:
+        :param session:
+        :param always_cache:
+        :return:
+        """
         return cls(factory=lambda: cache, session=session, always_cache=always_cache)
 
     def __reduce__(self):
-        """Reduce Sequence Factory for Pickleing."""
-        return (self.__class__, (self._session, self._cache, self.always_cache))
+        """
+        Reduce Sequence Factory for Pickling.
+
+        :return:
+        """
+        return self.__class__, (self.cache, self.session, self.always_cache)
+
+    def __eq__(self, other):
+        """
+        Equality of SequenceFactory.
+
+        :param other:
+        :return:
+        """
+        if isinstance(other, type(self)):
+            return self.__reduce__() == other.__reduce__()
+        return NotImplemented
 
     def clear(self):
-        """Clear Cache."""
-        self._cache.clear()
+        """
+        Clear Cache.
 
-    @property
-    def cache(self):
-        """Get Internal Cache Object."""
-        return self._cache
+        :return:
+        """
+        self.cache.clear()
+
+    def __len__(self):
+        """
+        Size of Cache.
+
+        :return:
+        """
+        return len(self.cache)
+
+    def __iter__(self):
+        """
+        Iterate Through Cache.
+
+        :return:
+        """
+        return iter(self.cache)
+
+    def __contains__(self, item):
+        """
+        Check if item is Stored in the Cache.
+
+        :param item:
+        :return:
+        """
+        return item in self.cache
 
     def load_meta(self, key, *, check_name=False):
         """Load Metadata Dictionary from Loader."""
-        return oeis_entry(key, self._session, check_name=check_name)
+        return oeis_entry(key, self.session, check_name=check_name)
 
-    @classmethod
-    def _extend_from_bfile(cls, key, sequence, *, check_name=False):
-        """Extend Sample Data for Sequence from B-File if possible."""
-        data = oeis_bfile(key, check_name=check_name)
+    def _extend_from_bfile(self, key, sequence, *, check_name=False):
+        """
+        Extend Sample Data for Sequence from B-File if possible.
+
+        :param key:
+        :param sequence:
+        :param check_name:
+        :return:
+        """
+        data = oeis_bfile(key, self.session, check_name=check_name)
         if data:
             sequence.sample_extend(data[len(sequence.sample) :])
             sequence._self_with_bfile = True
         return sequence
 
-    def load(self, key, *, cache_result=True, preload_sample=None, with_bfile=False):
-        """Load Sequence with Default Caching."""
+    def load(self, key, *, cache_result=True, with_bfile=False):
+        """
+        Load Sequence with Default Caching.
+
+        :param key:
+        :param cache_result:
+        :param with_bfile:
+        :return:
+        """
         key = oeis_name(key)
         try:
-            previous = self._cache[key]
+            previous = self.cache[key]
             if with_bfile and not previous.with_bfile:
                 return self._extend_from_bfile(key, previous, check_name=False)
             return previous
         except KeyError:
             pass
-        try:
-            meta = self.load_meta(key, check_name=False)
-            if not meta:
-                raise Exception
-            if with_bfile:
-                entry = self._extend_from_bfile(
-                    key, Sequence.from_dict(meta), check_name=False
-                )
-            else:
-                entry = Sequence.from_dict(meta)
-        except Exception as e:  # TODO: Figure this out
-            raise e
+        meta = self.load_meta(key, check_name=False)
+        if not meta:
+            raise MissingID.from_key(key)
+        if with_bfile:
+            entry = self._extend_from_bfile(
+                key, Sequence.from_dict(meta), check_name=False
+            )
+        else:
+            entry = Sequence.from_dict(meta)
         if cache_result or self.always_cache:
-            self._cache[key] = entry
-            return self._cache[key]
+            self.cache[key] = entry
+            return self.cache[key]
         return entry
 
     def __call__(self, key, *args, cache_result=False, **kwargs):
-        """Load Sequence without Caching by Default."""
+        """
+        Load Sequence without Caching by Default.
+
+        :param key:
+        :param args:
+        :param cache_result:
+        :param kwargs:
+        :return:
+        """
         return self.load(
             key, *args, cache_result=cache_result or self.always_cache, **kwargs
         )
@@ -389,13 +535,24 @@ class Registry(MutableMapping):
 
     @classmethod
     def from_factory(cls, factory):
-        """Make Registry from Pre-existing Factory."""
+        """
+        Make Registry from Pre-existing Factory.
+
+        :param factory:
+        :return:
+        """
         obj = object.__new__(cls)
         obj._factory = factory
         return obj
 
     def __new__(cls, *, cache_factory=dict, session=None):
-        """Make new Registry."""
+        """
+        Make new Registry.
+
+        :param cache_factory:
+        :param session:
+        :return:
+        """
         return cls.from_factory(SequenceFactory(factory=cache_factory, session=session))
 
     def __repr__(self):
@@ -445,7 +602,14 @@ class Registry(MutableMapping):
         return self._factory.clear()
 
     def register(self, key, generator=None, *, meta=None):
-        """Register Sequence through Factory."""
+        """
+        Register Sequence through Factory.
+
+        :param key:
+        :param generator:
+        :param meta:
+        :return:
+        """
         try:
             cached_value = self[key]
             if meta and cached_value.meta == meta:

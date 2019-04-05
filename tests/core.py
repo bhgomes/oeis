@@ -27,26 +27,65 @@
 #
 
 """
-Test Sutie Core.
+Test Suite Core.
 
 """
 
 # -------------- Standard Library -------------- #
 
+import re
 from functools import partial
 
 # -------------- External Library -------------- #
 
+import pytest
 from numpy.random import randint
 
 # ---------------- oeis Library ---------------- #
 
 import oeis
-from oeis.util import except_or, is_int
+from oeis.util import except_or
+
+
+def _func(*args, **kwargs):
+    return args, kwargs
+
+
+class _Class:
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+
+
+PYTHON_OBJECTS = (
+    None,
+    0,
+    3.14,
+    3 + 4j,
+    "a",
+    "sentence",
+    [],
+    [1, 2, 3],
+    (),
+    (1, 2, 3),
+    set([1, 2, 3]),
+    {"a": 1, 2: "b", "list": []},
+    map(str, range(1, 20)),
+    lambda f: None,
+    _func,
+    _Class(),
+    object(),
+)
 
 
 def random_id_gen(n, *, max_id=999999):
-    """Get Generator to Random Potential OEIS Numbers."""
+    """
+    Get Generator to Random Potential OEIS Numbers.
+
+    :param n:
+    :param max_id:
+    :return:
+    """
 
     def gen():
         return tuple(map(int, randint(max_id, size=n)))
@@ -54,16 +93,67 @@ def random_id_gen(n, *, max_id=999999):
     return gen
 
 
-def random_oeis_sequences(n, *, max_id=999999, retries=10):
-    """Download Random Sample Sequences from OEIS."""
+def random_sequences(n, *, max_id=999999, retries=10):
+    """
+    Download Random Sample Sequences from OEIS.
+
+    :param n:
+    :param max_id:
+    :param retries:
+    :return:
+    """
     total = attempts = 0
     gen = random_id_gen(n, max_id=max_id)
     while total < n or attempts >= retries:
         for a in gen():
-            seq = except_or(partial(oeis.A.load, a), Exception, None)
+            seq = except_or(partial(oeis.A.load, a), oeis.MissingID, None)
             if seq:
                 total += 1
                 yield seq
-            if total == n:
-                return
+                if total == n:
+                    return
         attempts += 1
+    print("[INFO]: {} Entries Loaded.".format(len(oeis.A)))
+
+
+def parametrized_ids(name, *args, **kwargs):
+    """
+    Parametrized OEIS IDs.
+
+    :param name:
+    :param args:
+    :param kwargs:
+    :return:
+    """
+
+    def inner(func):
+        return pytest.mark.parametrize(name, random_id_gen(*args, **kwargs)())(func)
+
+    return inner
+
+
+def parametrized_sequences(name, *args, **kwargs):
+    """
+    Parametrized OEIS Sequences.
+    
+    :param name:
+    :param args:
+    :param kwargs:
+    :return:
+    """
+
+    def inner(func):
+        return pytest.mark.parametrize(name, list(random_sequences(*args, **kwargs)))(
+            func
+        )
+
+    return inner
+
+
+def match_with(obj):
+    """
+    Regex Match Looking for Object.
+    :param obj:
+    :return:
+    """
+    return r".*{}.*".format(re.escape(str(obj)))
