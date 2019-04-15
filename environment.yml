@@ -2,9 +2,11 @@ name: oeis
 channels:
   - conda-forge
 dependencies:
+  - python
   - ipython
   - pytest
   - pytest-cov
+  - hypothesis
   - coverage
   - coveralls
   - pylint
