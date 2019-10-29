@@ -46,4 +46,4 @@ or edit the `environment.yml` file to your choosing.
 
 ---
 
-_[Copyright (c) 2019 Brandon Gomes](UNLICENSE)_
+_[Unlicensed](UNLICENSE)_
