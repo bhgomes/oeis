@@ -34,20 +34,17 @@ Test OEIS Client.
 # -------------- External Library -------------- #
 
 import pytest
-import requests
+from hypothesis import given
+from hypothesis import strategies as st
 
 # ---------------- oeis Library ---------------- #
 
 import oeis
 from oeis.util import is_int, BoxObject, Box
-from .core import random_id_gen, parametrized_ids, PYTHON_OBJECTS
+from .core import random_ids, PYTHON_OBJECTS, SESSION
 
 
 # TODO: figure out how to test async functions
-
-
-SESSION = oeis.Session(requests.Session())
-
 
 # TODO: get sample queries for OEIS searches
 SAMPLE_QUERIES = (("1, 2, 3, 4, 5", None), ("1  2  3  4  5", None))
@@ -61,7 +58,7 @@ def test_oeis_query(term, expected):
         assert content == expected
 
 
-@parametrized_ids("index", 50)
+@given(random_ids())
 def test_oeis_entry(index):
     content = oeis.entry(index, check_name=True)
     if content:
@@ -78,7 +75,7 @@ def test_bad_oeis_entry(obj):
             oeis.entry(obj)
 
 
-@parametrized_ids("index", 50)
+@given(random_ids())
 def test_oeis_exists(index):
     if oeis.client.entry(index):
         assert oeis.exists(index)
@@ -86,12 +83,12 @@ def test_oeis_exists(index):
         assert oeis.entry(index)
 
 
-@pytest.mark.parametrize("number", list(range(999999, 999999 + 100)))
+@given(st.integers(min_value=999999))
 def test_oeis_does_not_exist(number):
     assert not oeis.exists(number)
 
 
-@parametrized_ids("index", 50)
+@given(random_ids())
 def test_oeis_b_file(index):
     if oeis.exists(index):
         content = oeis.bfile(index, check_name=True)
@@ -101,14 +98,19 @@ def test_oeis_b_file(index):
         pytest.skip("Missing OEIS Index: {}.".format(index))
 
 
+@pytest.fixture()
+def session():
+    return oeis.Session(SESSION)
+
+
 @pytest.mark.parametrize("term, expected", SAMPLE_QUERIES)
-def test_session_query(term, expected):
-    assert oeis.query(term) == SESSION.query(term)
+def test_session_query(term, expected, session):
+    assert oeis.query(term) == session.query(term)
 
 
-@parametrized_ids("index", 50)
-def test_session_entry(index):
+@given(random_ids())
+def test_session_entry(index, session):
     name = oeis.name(index)
-    assert oeis.exists(name, check_name=False) == SESSION.exists(name, check_name=False)
-    assert oeis.entry(name, check_name=False) == SESSION.entry(name, check_name=False)
-    assert oeis.bfile(name, check_name=False) == SESSION.bfile(name, check_name=False)
+    assert oeis.exists(name, check_name=False) == session.exists(name, check_name=False)
+    assert oeis.entry(name, check_name=False) == session.entry(name, check_name=False)
+    assert oeis.bfile(name, check_name=False) == session.bfile(name, check_name=False)

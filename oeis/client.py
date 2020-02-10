@@ -281,6 +281,7 @@ def exists(number, *args, **kwargs):
     :param kwargs:
     :return:
     """
+    # TODO: can be improved
     return bool(entry(number, *args, **kwargs))
 
 
@@ -350,6 +351,7 @@ def bfile_exists(number, *args, **kwargs):
     :param kwargs:
     :return:
     """
+    # TODO: can be improved
     return bool(bfile(number, *args, **kwargs))
 
 
@@ -373,7 +375,7 @@ class Session(ObjectProxy):
         :param kwargs:
         :return:
         """
-        return _fetch(url, self.__wrapped__, *args, **kwargs)
+        return fetch(url, self.__wrapped__, *args, **kwargs)
 
     def query(self, term, *args, **kwargs):
         """

@@ -46,7 +46,7 @@ from .sequence import *
 from .util import value_or
 
 
-GETATTR_IMPORT = sys.version_info >= (3, 7)
+GETATTR_IMPORT_SUPPORT = sys.version_info >= (3, 7)
 
 
 def _module_getattr_(a_, oeis_, file):
@@ -58,38 +58,45 @@ def _module_getattr_(a_, oeis_, file):
         try:
             return a_.__call__(attribute)
         except MissingID:
-            try:
-                return getattr(oeis_, attribute)
-            except Exception:  # TODO: except ?
-                pass
-        raise ImportError(
-            "cannot import name '{}' from 'oeis' ({})".format(attribute, file)
-        )
+            return getattr(oeis_, attribute)
+        except Exception:
+            raise ImportError(
+                "cannot import name '{}' from 'oeis' ({})".format(attribute, file)
+            )
 
     return inner
 
 
-def setup_module(generator_list, file, *, a_=None, oeis_=None):
-    """Register all Included Generators."""
+def get_custom_session():
+    """"""
     if REQUESTS_SUPPORT:
         import requests
 
         session = requests.Session()
-
         if CACHE_CONTROL_SUPPORT:
             from cachecontrol import CacheControl
 
-            session = CacheControl(session)
+            return CacheControl(session)
+        return session
+    return None
 
-    a_ = value_or(a_, SequenceFactory(always_cache=True, session=session))
-    oeis_ = value_or(oeis_, Registry.from_factory(a_))
 
+def build_generators(generator_list, oeis_):
+    """Register all Included Generators."""
     for generator in map(lambda g: getattr(generators, g), generator_list):
         generator_name = generator.__name__
         if generator_name.startswith("g"):
             oeis_.register(generator_name.strip("g"), generator, meta=True)
 
-    if GETATTR_IMPORT:
+
+def setup_module(generator_list, file, *, a_=None, oeis_=None):
+    """"""
+    a_ = value_or(a_, SequenceFactory(always_cache=True, session=get_custom_session()))
+    oeis_ = value_or(oeis_, Registry.from_factory(a_))
+
+    build_generators(generator_list, oeis_)
+
+    if GETATTR_IMPORT_SUPPORT:
         return a_, oeis_, _module_getattr_(a_, oeis_, file)
     return a_, oeis_, lambda n: None
 
@@ -98,5 +105,5 @@ A, OEIS, __getattr__ = setup_module(generators.__all__, __file__)
 
 
 __all__ = (
-    base.__all__ + client.__all__ + sequence.__all__ + ("A", "OEIS", "GETATTR_IMPORT")
+    base.__all__ + client.__all__ + sequence.__all__ + ("A", "OEIS", "GETATTR_IMPORT_SUPPORT")
 )

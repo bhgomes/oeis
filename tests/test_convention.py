@@ -34,13 +34,14 @@ Test Naming Convention.
 # -------------- External Library -------------- #
 
 import pytest
+from hypothesis import given
 
 # ---------------- oeis Library ---------------- #
 
 import oeis
 from oeis.base import _convert_string
 from oeis.util import is_int
-from .core import PYTHON_OBJECTS, random_id_gen, parametrized_ids, match_with
+from .core import PYTHON_OBJECTS, random_ids, match_with
 
 
 @pytest.mark.parametrize("obj", PYTHON_OBJECTS)
@@ -52,7 +53,7 @@ def test_invalid_id(obj):
             oeis.number(obj)
 
 
-@parametrized_ids("index", 50)
+@given(random_ids())
 def test_missing_id(index):
     if not oeis.exists(index):
         with pytest.raises(oeis.MissingID, match=match_with(index)):
@@ -61,14 +62,16 @@ def test_missing_id(index):
         assert oeis.A(index)
 
 
-@parametrized_ids("index", 50)
+@given(random_ids())
 def test_convert_string(index):
+    # FIXME: remove this test but continue to test
+    #  this property, i.e. don't rely on internal behavior
     assert _convert_string(str(index)) == index
     assert _convert_string("A" + str(index)) == index
     assert _convert_string(index) == index
 
 
-@parametrized_ids("index", 50)
+@given(random_ids())
 def test_oeis_name_number(index):
     name = oeis.name(index)
     number = oeis.number(index)
@@ -77,7 +80,8 @@ def test_oeis_name_number(index):
     assert int(name[1:]) == int(number)
 
 
-def test_find_references():
-    random_ids = map(oeis.name, random_id_gen(100)())
-    for index, ref in zip(random_ids, oeis.find_references(".".join(random_ids))):
-        assert index == ref
+@given(random_ids().map(oeis.name))
+def test_find_references(names):
+    references = list(oeis.find_references(".".join(names)))
+    assert len(names) == len(references)
+    assert all(index == ref for index, ref in zip(names, references))

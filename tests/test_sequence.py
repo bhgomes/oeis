@@ -39,19 +39,15 @@ from functools import partial
 # -------------- External Library -------------- #
 
 import pytest
-import requests
+from hypothesis import given
+from hypothesis import strategies as st
 
 # ---------------- oeis Library ---------------- #
 
 import oeis
 from oeis.sequence import _slice_details, Sequence, SequenceFactory, Registry
 from oeis.util import Box, BoxObject
-from .core import (
-    parametrized_ids,
-    parametrized_sequences,
-    random_id_gen,
-    random_sequences,
-)
+from .core import random_ids, random_sequences, SESSION
 
 
 def index_function(index):
@@ -97,6 +93,7 @@ BAD_SIGNATURES = (
 
 
 def test_slice_details():
+    # FIXME: remove internal details test
     assert _slice_details(index_function) == (type(index_function), 1, index_function)
     assert _slice_details(explicit_slice_function) == (
         type(explicit_slice_function),
@@ -116,7 +113,7 @@ def test_slice_details():
         assert _slice_details(f) == (type(f), 0, None)
 
 
-@parametrized_ids("index", 50)
+@given(random_ids())
 def test_initialization(index):
     empty_generator_sequence = Sequence(index)
     assert empty_generator_sequence.number == index
@@ -125,7 +122,7 @@ def test_initialization(index):
     assert empty_generator_sequence.meta == Box()
 
 
-@parametrized_sequences("sequence", 5)
+@given(random_sequences())
 def test_dunder_attributes(sequence):
     assert sequence.__oeis_name__ == sequence.name
     assert sequence.__oeis_number__ == sequence.number
@@ -147,7 +144,7 @@ def test_programs():
     assert True
 
 
-@parametrized_sequences("sequence", 5)
+@given(random_sequences())
 def test_timestamps(sequence):
     assert isinstance(sequence.modified, datetime)
     assert isinstance(sequence.created, datetime)
@@ -165,9 +162,9 @@ def test_finite():
     assert True
 
 
-def test_factory_from_cache():
-    sequences = list(random_sequences(50))
-    session = requests.Session()
+@given(st.lists(random_sequences(), max_size=5))
+def test_factory_from_cache(sequences):
+    session = SESSION
     blank_factory = SequenceFactory(session=session)
     cache = {}
     for sequence in sequences:
@@ -177,26 +174,21 @@ def test_factory_from_cache():
     assert blank_factory == from_cache
 
 
-def make_factory(count=30):
-    factory = SequenceFactory(session=requests.Session(), always_cache=True)
-    for index in list(random_id_gen(count)()):
-        try:
-            factory.load(index)
-        except oeis.MissingID:
-            pass
-    return factory
+@pytest.fixture()
+def factory():
+    return SequenceFactory(session=SESSION, always_cache=True)
 
 
-def test_factory_dunder_reduce():
-    factory = make_factory()
+def test_factory_dunder_reduce(factory):
     assert factory.__reduce__() == (
         type(factory),
         (factory.cache, factory.session, factory.always_cache),
     )
 
-
-def test_factory_as_cache_behavior():
-    factory = make_factory()
+@given(st.lists(random_ids(), max_size=10))
+def test_factory_as_cache_behavior(factory, indices):
+    for index in indices:
+        factory.load(index)
     assert len(factory) == len(factory.cache)
     assert list(iter(factory)) == list(iter(factory.cache))
     for key in factory.cache.keys():
@@ -206,22 +198,21 @@ def test_factory_as_cache_behavior():
     assert len(factory.cache) == 0
 
 
-def test_sequence_loading():
-    factory = make_factory(0)
-    for index in map(oeis.name, list(random_id_gen(50)())):
-        meta = factory.load_meta(index)
-        if not oeis.exists(index):
+@given(st.lists(random_ids()).map(oeis.name))
+def test_sequence_loading(factory, names):
+    for name in names:
+        meta = factory.load_meta(name)
+        if not oeis.exists(name):
             assert isinstance(meta, BoxObject)
             assert meta == None
         else:
             assert isinstance(meta, Box)
             assert isinstance(meta.raw, dict)
-            entry = factory.load(index)
+            entry = factory.load(name)
             assert entry == Sequence.from_dict(meta)
 
 
-def test_bfile_loading():
-    factory = make_factory()
+def test_bfile_loading(factory):
     for key, sequence in factory.cache.items():
         assert not sequence.with_bfile
         data = list(oeis.bfile(key))

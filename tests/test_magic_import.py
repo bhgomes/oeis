@@ -38,30 +38,31 @@ import sys
 # -------------- External Library -------------- #
 
 import pytest
+from hypothesis import given
 
 # ---------------- oeis Library ---------------- #
 
 import oeis
-from .core import parametrized_ids
-
-
-HAS_MAGIC_IMPORT = oeis.GETATTR_IMPORT
+from .core import random_ids
 
 
 def test_version():
-    assert (sys.version_info >= (3, 7)) == HAS_MAGIC_IMPORT
+    assert (sys.version_info >= (3, 7)) == oeis.GETATTR_IMPORT_SUPPORT
 
 
-@parametrized_ids("number", 100)
+@given(random_ids())
 @pytest.mark.skipif(
-    not HAS_MAGIC_IMPORT, reason="Magic import only supported in Python 3.7+"
+    not oeis.GETATTR_IMPORT_SUPPORT,
+    reason="'Magic import' only supported in Python 3.7+",
 )
-def test_magic_import(number):
+def test_magic_import(index):
     try:
-        entry = getattr(oeis, "A" + str(number))
+        entry = getattr(oeis, "A" + str(index))
+        assert entry in oeis.OEIS
+        oeis.OEIS.clear()
+        default_request = oeis.A(index)
+        assert default_request in oeis.OEIS
+        oeis.OEIS.clear()
+        assert entry == default_request
     except ImportError:
-        pytest.skip("OEIS Entry {number} does not exist.".format(number=number))
-    default_request = oeis.A(number)
-    assert entry in oeis.OEIS
-    assert default_request in oeis.OEIS
-    assert entry == default_request
+        pytest.skip("OEIS Entry {number} cannot be found.".format(number=index))

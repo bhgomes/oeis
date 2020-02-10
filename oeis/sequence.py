@@ -34,12 +34,13 @@ OEIS Sequences.
 # -------------- Standard Library -------------- #
 
 import re
+import inspect
 from collections.abc import MutableMapping
 from copy import deepcopy
 from datetime import datetime
 from itertools import chain, groupby, islice
 from functools import partial
-import inspect
+from typing import Union
 
 # -------------- External Library -------------- #
 
@@ -287,7 +288,7 @@ class Sequence(ObjectProxy):
         """Parse Sample Program List."""
         if not hasattr(cls, "_program_regex"):
             cls._program_regex = re.compile(
-                r"^\(([^\(\)]*)+?\).*$", re.MULTILINE | re.UNICODE
+                r"^\(([^()]*)+?\).*$", re.MULTILINE | re.UNICODE
             )
         last_key = None
 
@@ -416,7 +417,7 @@ class SequenceFactory:
         """
         return self.__class__, (self.cache, self.session, self.always_cache)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         """
         Equality of SequenceFactory.
 
@@ -435,25 +436,9 @@ class SequenceFactory:
         """
         self.cache.clear()
 
-    def __len__(self):
+    def __contains__(self, item) -> bool:
         """
-        Size of Cache.
-
-        :return:
-        """
-        return len(self.cache)
-
-    def __iter__(self):
-        """
-        Iterate Through Cache.
-
-        :return:
-        """
-        return iter(self.cache)
-
-    def __contains__(self, item):
-        """
-        Check if item is Stored in the Cache.
+        Check if item is Stored in the Factory Cache.
 
         :param item:
         :return:
@@ -464,7 +449,7 @@ class SequenceFactory:
         """Load Metadata Dictionary from Loader."""
         return oeis_entry(key, self.session, check_name=check_name)
 
-    def _extend_from_bfile(self, key, sequence, *, check_name=False):
+    def extend_from_bfile(self, key, sequence, *, check_name=False):
         """
         Extend Sample Data for Sequence from B-File if possible.
 
@@ -492,7 +477,7 @@ class SequenceFactory:
         try:
             previous = self.cache[key]
             if with_bfile and not previous.with_bfile:
-                return self._extend_from_bfile(key, previous, check_name=False)
+                return self.extend_from_bfile(key, previous, check_name=False)
             return previous
         except KeyError:
             pass
@@ -500,7 +485,7 @@ class SequenceFactory:
         if not meta:
             raise MissingID.from_key(key)
         if with_bfile:
-            entry = self._extend_from_bfile(
+            entry = self.extend_from_bfile(
                 key, Sequence.from_dict(meta), check_name=False
             )
         else:
@@ -509,6 +494,13 @@ class SequenceFactory:
             self.cache[key] = entry
             return self.cache[key]
         return entry
+
+    def safe_load(self, *args, **kwargs) -> Union[Sequence, None]:
+        """"""
+        try:
+            return self.load(*args, **kwargs)
+        except MissingID:
+            return None
 
     def __call__(self, key, *args, cache_result=False, **kwargs):
         """
@@ -557,17 +549,15 @@ class Registry(MutableMapping):
 
     def __repr__(self):
         """Get Registry Representation."""
-        return "{cls}{cache}".format(
-            cls=type(self).__name__, cache=tuple(self.internal_cache)
-        )
+        return "{cls}({cache})".format(cls=type(self).__name__, cache=tuple(self.cache))
 
     @property
-    def internal_cache(self):
+    def cache(self):
         """Get Factory Cache."""
         return self._factory.cache
 
     def __getattr__(self, name):
-        """Get Element from Cache as AttributeError."""
+        """Get Element from Cache as Attribute."""
         try:
             return self[name]
         except KeyError:
@@ -575,27 +565,27 @@ class Registry(MutableMapping):
 
     def __contains__(self, key):
         """Check Containment of OEIS Key."""
-        return oeis_name(key) in self.internal_cache
+        return oeis_name(key) in self.cache
 
     def __getitem__(self, key):
         """Get Element from Internal Cache."""
-        return self.internal_cache[oeis_name(key)]
+        return self.cache[oeis_name(key)]
 
     def __setitem__(self, key, value):
         """Set Element of Internal Cache."""
-        self.internal_cache[key] = value
+        self.cache[key] = value
 
     def __delitem__(self, key):
         """Delete Element from Internal Cache."""
-        del self.internal_cache[oeis_name(key)]
+        del self.cache[oeis_name(key)]
 
     def __iter__(self):
         """Return Iterator to Internal Cache."""
-        return iter(self.internal_cache)
+        return iter(self.cache)
 
     def __len__(self):
         """Get Length of Internal Cache."""
-        return len(self.internal_cache)
+        return len(self.cache)
 
     def clear(self):
         """Clear Factory."""
@@ -611,10 +601,10 @@ class Registry(MutableMapping):
         :return:
         """
         try:
-            cached_value = self[key]
-            if meta and cached_value.meta == meta:
-                return Sequence.from_sequence(cached_value, generator)
-            generator = value_or(generator, cached_value.__wrapped__)
+            cached_sequence = self[key]
+            if meta and cached_sequence.meta == meta:
+                return Sequence.from_sequence(cached_sequence, generator)
+            generator = value_or(generator, cached_sequence.__wrapped__)
         except KeyError:
             pass
         key = oeis_name(key)
@@ -623,8 +613,7 @@ class Registry(MutableMapping):
         number = oeis_number(key)
         if meta and number != meta.number:
             raise ValueError(
-                "OEIS numbers don't match: "
-                "{} should be {}".format(number, meta.number)
+                "OEIS indices don't match: {} should be {}".format(number, meta.number)
             )
         self[key] = Sequence(number, generator=generator, meta=meta)
-        return self.internal_cache[key]
+        return self[key]

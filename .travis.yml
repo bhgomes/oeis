@@ -23,7 +23,7 @@ install:
   - source activate travis_environment
 
 script:
-  - pytest tests/ -sv -ra --cov=oeis
+  - pytest tests/ -sv -ra --cov=oeis --hypothesis-profile ci
 
 after_success:
   - coveralls

@@ -12,7 +12,9 @@ import hashlib
 from shutil import rmtree
 from setuptools import setup, find_packages, Command
 
+
 SETUP_JSON = "setup.json"
+
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 

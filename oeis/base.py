@@ -59,12 +59,11 @@ class FromKeyMixin:
     def __init_subclass__(cls, key_text="{}", **kwargs):
         """Initialize Subclasses."""
         super().__init_subclass__(**kwargs)
-        cls.key_text = key_text
 
-    @classmethod
-    def from_key(cls, key):
-        """Build from Key"""
-        return cls(cls.key_text.format(key))
+        def from_key(c, key):
+            return c(key_text.format(key))
+
+        cls.from_key = classmethod(from_key)
 
 
 class InvalidID(KeyError, FromKeyMixin, key_text="Key {} not a valid OEIS id."):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*- #
 #
-# tests/core.py
+# tests/test_factory.py
 #
 #
 # MIT License
@@ -27,97 +27,55 @@
 #
 
 """
-Test Suite Core.
+Test OEIS Sequence Factory..
 
 """
 
 # -------------- Standard Library -------------- #
 
-import re
-
 # -------------- External Library -------------- #
 
-import requests
-from hypothesis import settings
+import pytest
+from hypothesis import given
 from hypothesis import strategies as st
+from hypothesis.stateful import (
+    RuleBasedStateMachine,
+    rule,
+    invariant,
+    initialize,
+    Bundle,
+)
 
 # ---------------- oeis Library ---------------- #
 
 import oeis
+from oeis.sequence import SequenceFactory, Registry
+from .core import SESSION, random_ids, random_names
 
 
-settings.register_profile("base", deadline=None, max_examples=5)
-settings.register_profile("ci", deadline=None, max_examples=80)
-settings.load_profile("base")
+class FactoryMachine(RuleBasedStateMachine):
 
+    meta_list = Bundle("meta_list")
 
-SESSION = requests.Session()
+    @initialize(cache=st.one_of(dict()), always_cache=st.booleans())
+    def build_factory(self, cache, always_cache=False):
+        # TODO: add more cache types
+        self.factory = SequenceFactory.from_cache(
+            cache, session=SESSION, always_cache=always_cache
+        )
+        self.registry = Registry.from_factory(self.factory)
 
-
-def _func(*args, **kwargs):
-    return args, kwargs
-
-
-class _Class:
-    def __init__(self, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
-
-
-PYTHON_OBJECTS = (
-    None,
-    0,
-    3.14,
-    3 + 4j,
-    "a",
-    "sentence",
-    [],
-    [1, 2, 3],
-    (),
-    (1, 2, 3),
-    {1, 2, 3},
-    {"a": 1, 2: "b", "list": []},
-    map(str, range(1, 20)),
-    lambda f: None,
-    _func,
-    _Class(),
-    object(),
-)
-
-
-def random_ids(max_id=999999):
-    """
-
-    :param max_id:
-    :return:
-    """
-    return st.integers(min_value=1, max_value=max_id)
-
-
-def random_names(max_id=999999):
-    """
-
-    :param max_id:
-    :return:
-    """
-    return random_ids(max_id=max_id).map(oeis.name)
-
-
-def random_sequences(max_id=999999):
-    """
-
-    :param max_id:
-    :return:
-    """
-    return st.builds(oeis.A.safe_load, random_ids(max_id=max_id)).filter(
-        lambda n: n is not None
+    @rule(
+        target=meta_list,
+        key=st.one_of(random_ids(), random_names()),
+        check_name=st.booleans(),
     )
+    def load_meta(self, key, check_name):
+        return self.factory.load_meta(key, check_name=check_name)
+
+    @invariant()
+    def caches_match(self):
+        assert self.factory.cache == self.registry.cache
 
 
-def match_with(obj):
-    """
-    Regex Match Looking for Object.
-    :param obj:
-    :return:
-    """
-    return r".*{}.*".format(re.escape(str(obj)))
+TestFactoryMachine = FactoryMachine.TestCase
